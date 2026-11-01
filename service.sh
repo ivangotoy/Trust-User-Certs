@@ -440,7 +440,9 @@ cmd_config() {
     return 1
   }
   _load_log_level
-  log_info "Config: $1=$2"
+  # A log level change is always written, also when the new level is 0, so
+  # the WebUI log shows it at once.
+  if [ "$1" = LOG_LEVEL ]; then _log INFO "Config: $1=$2"; else log_info "Config: $1=$2"; fi
 
   if [ "$1" = "LIVE_SYNC" ]; then
     if [ "$2" = "1" ]; then
