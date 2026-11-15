@@ -425,10 +425,10 @@ body {
       <div class="hero-label" id="statusLabel">module status</div>
       <div class="hero-value unknown" id="statusValue">checking…</div>
       <div class="hero-chips">
-        <div class="chip" id="chipStore">store <b id="certCount">—</b></div>
-        <div class="chip">user certs <b id="userCount">—</b></div>
-        <div class="chip" id="chipCustom" style="display:none">custom <b id="customCount">—</b></div>
-        <div class="chip">fail counter <b id="failCount">—</b></div>
+        <div class="chip" id="chipStore">store <b id="certCount">-</b></div>
+        <div class="chip">user certs <b id="userCount">-</b></div>
+        <div class="chip" id="chipCustom" style="display:none">custom <b id="customCount">-</b></div>
+        <div class="chip">fail counter <b id="failCount">-</b></div>
       </div>
     </div>
     <button class="hero-refresh" onclick="refreshAll()">REFRESH</button>
@@ -531,7 +531,7 @@ body {
 <div class="sec"><span class="sec-ico">＋</span> custom certificates</div>
 <div class="hint" id="customHint">
   Drop <b>&lt;subject_hash_old&gt;.0</b> files into <b id="customDir">/data/adb/trust-user-certs/certs</b>.
-  Live Sync picks them up within seconds (without it: Force Inject). Root-only; removed on uninstall — keep a copy.
+  Live Sync picks them up within seconds (without it: Force Inject). Root-only; removed on uninstall - keep a copy.
 </div>
 
 <!-- LOGS -->
@@ -547,7 +547,7 @@ body {
       <button class="log-refresh-btn" onclick="loadLogs()">REFRESH</button>
     </div>
     <div class="log-row">
-      <span class="log-size" id="logSize">— B</span>
+      <span class="log-size" id="logSize">- B</span>
       <button class="log-clear" onclick="clearLog()">
         <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <polyline points="3 6 5 6 21 6"/>
@@ -771,7 +771,7 @@ function fatal(msg) {
 var DEVICE_NOW = 0;
 function fmtAgo(ts) {
   var t = parseInt(ts, 10);
-  if (!t) return '—';
+  if (!t) return '-';
   var now = DEVICE_NOW || Math.floor(Date.now() / 1000);
   var diff = now - t;
   if (diff < 0) diff = 0;
@@ -822,6 +822,8 @@ async function refreshStatus() {
   var ctrusted = parseInt(st.CUSTOM_TRUSTED, 10) || 0;
   var cexcluded = parseInt(st.CUSTOM_EXCLUDED, 10) || 0;
   var cexpected = cust - cexcluded;
+  // In the store under a name Android never looks up (service.sh v5.2+).
+  var badname = (parseInt(st.USER_BADNAME, 10) || 0) + (parseInt(st.CUSTOM_BADNAME, 10) || 0);
   var userOk = trusted === expected;
   var customOk = st.CUSTOM_TRUSTED === undefined || ctrusted === cexpected; // older service.sh
 
@@ -837,9 +839,11 @@ async function refreshStatus() {
   } else if (mounted && storeN > 0) {
     state = 'partial';
     text = 'PARTIAL';
-    document.getElementById('statusLabel').textContent = !userOk
-      ? trusted + '/' + expected + ' user certs trusted'
-      : ctrusted + '/' + cexpected + ' custom certs trusted';
+    document.getElementById('statusLabel').textContent = badname > 0
+      ? badname + (badname === 1 ? ' cert has' : ' certs have') + ' a wrong file name'
+      : (!userOk
+        ? trusted + '/' + expected + ' user certs trusted'
+        : ctrusted + '/' + cexpected + ' custom certs trusted');
   } else {
     state = 'broken';
     text = 'NOT WORKING';
@@ -982,14 +986,14 @@ async function doAction(type) {
     var out;
     if (type === 'inject') {
       out = parseKV(await svc('--force-inject', 120000));
-      showToast(out.rc === '0' ? 'Inject verified' : 'Inject failed — check the log',
+      showToast(out.rc === '0' ? 'Inject verified' : 'Inject failed - check the log',
                 out.rc === '0' ? 'ok' : 'err');
     } else if (type === 'sync') {
       out = parseKV(await svc('--sync', 120000));
       if (out.rc === '0' && out.watcher === 'restarted') {
         showToast('Sync complete · watcher restarted', 'ok');
       } else {
-        showToast(out.rc === '0' ? 'Sync complete' : 'Sync failed — check the log',
+        showToast(out.rc === '0' ? 'Sync complete' : 'Sync failed - check the log',
                   out.rc === '0' ? 'ok' : 'err');
       }
     } else if (type === 'reset') {
@@ -1111,19 +1115,73 @@ async function clearLog() {
   }
 }
 
-// ── ASN.1 DER parser (subject, validity, serial) ─────────────────────────────
+// ── Certificate parser (DER or PEM -> subject, validity, serial, hash) ──────
+// KeyChain writes user certificates as DER; exports from apps such as
+// HttpCanary and Android's own store files are PEM. Android reads both, so
+// the WebUI shows both.
 function derParseLen(d, pos) {
   var l = d[pos];
   if (l < 0x80) return [l, pos + 1];
   var n = l & 0x7f;
+  if (n < 1 || n > 4) throw new Error('bad length');
   var len = 0;
   for (var i = 0; i < n; i++) len = (len * 256) + d[pos + 1 + i];
   return [len, pos + 1 + n];
 }
 
-function derParseCert(b64) {
+// certBytes(b64) -> { d: Uint8Array of the DER certificate, fmt: 'DER'|'PEM' }
+function certBytes(b64) {
   var bin = atob(b64.replace(/\s/g, ''));
+  var fmt = 'DER';
+  var m = /-----BEGIN (?:X509 |TRUSTED )?CERTIFICATE-----([A-Za-z0-9+\/=\s]+)-----END/.exec(bin);
+  if (m) {
+    bin = atob(m[1].replace(/\s/g, ''));
+    fmt = 'PEM';
+  }
   var d = Uint8Array.from(bin, function (c) { return c.charCodeAt(0); });
+  if (d[0] !== 0x30) throw new Error('not a certificate');
+  return { d: d, fmt: fmt };
+}
+
+// md5(bytes) -> Uint8Array(16). Only used for the OpenSSL subject_hash_old
+// that Android expects in the file name.
+function md5(msg) {
+  var K = [], S = [7, 12, 17, 22, 5, 9, 14, 20, 4, 11, 16, 23, 6, 10, 15, 21];
+  for (var i = 0; i < 64; i++) K[i] = Math.floor(Math.abs(Math.sin(i + 1)) * 4294967296) >>> 0;
+  var len = msg.length, nblk = ((len + 8) >>> 6) + 1;
+  var w = new Uint32Array(nblk * 16);
+  for (i = 0; i < len; i++) w[i >> 2] |= msg[i] << ((i % 4) * 8);
+  w[len >> 2] |= 0x80 << ((len % 4) * 8);
+  w[nblk * 16 - 2] = (len * 8) >>> 0;
+  w[nblk * 16 - 1] = Math.floor(len / 536870912);
+  var a0 = 0x67452301, b0 = 0xefcdab89, c0 = 0x98badcfe, d0 = 0x10325476;
+  for (var o = 0; o < w.length; o += 16) {
+    var a = a0, b = b0, c = c0, d = d0;
+    for (i = 0; i < 64; i++) {
+      var f, g, r = i >> 4;
+      if (r === 0) { f = (b & c) | (~b & d); g = i; }
+      else if (r === 1) { f = (d & b) | (~d & c); g = (5 * i + 1) % 16; }
+      else if (r === 2) { f = b ^ c ^ d; g = (3 * i + 5) % 16; }
+      else { f = c ^ (b | ~d); g = (7 * i) % 16; }
+      var t = d; d = c; c = b;
+      var x = (a + f + K[i] + w[o + g]) >>> 0, s = S[r * 4 + (i % 4)];
+      b = (b + ((x << s) | (x >>> (32 - s)))) >>> 0;
+      a = t;
+    }
+    a0 = (a0 + a) >>> 0; b0 = (b0 + b) >>> 0; c0 = (c0 + c) >>> 0; d0 = (d0 + d) >>> 0;
+  }
+  var out = new Uint8Array(16);
+  [a0, b0, c0, d0].forEach(function (v, j) {
+    for (var k = 0; k < 4; k++) out[j * 4 + k] = (v >>> (k * 8)) & 0xff;
+  });
+  return out;
+}
+
+function hex2(b) { return b.toString(16).padStart(2, '0'); }
+
+function derParseCert(b64) {
+  var cb = certBytes(b64);
+  var d = cb.d;
 
   var OID_MAP = {
     '550403': 'CN', '55040a': 'O', '55040b': 'OU',
@@ -1135,10 +1193,20 @@ function derParseCert(b64) {
     while (pos < data.length) {
       var tag = data[pos];
       var r = derParseLen(data, pos + 1);
-      items.push({ tag: tag, val: data.slice(r[1], r[1] + r[0]) });
+      items.push({ tag: tag, val: data.slice(r[1], r[1] + r[0]), raw: data.slice(pos, r[1] + r[0]) });
       pos = r[1] + r[0];
     }
     return items;
+  }
+
+  function decodeStr(tag, bytes) {
+    if (tag === 0x1e) { // BMPString: UTF-16BE
+      var s = '';
+      for (var i = 0; i + 1 < bytes.length; i += 2) s += String.fromCharCode((bytes[i] << 8) | bytes[i + 1]);
+      return s;
+    }
+    if (tag === 0x14) return String.fromCharCode.apply(null, bytes); // T61: Latin-1
+    return new TextDecoder('utf-8').decode(bytes);
   }
 
   function parseRDN(data) {
@@ -1153,13 +1221,12 @@ function derParseCert(b64) {
       var seqData = setData.slice(q[1], q[1] + q[0]);
       if (seqData[0] !== 0x06) continue;
       var o = derParseLen(seqData, 1);
-      var oidHex = Array.from(seqData.slice(o[1], o[1] + o[0]))
-        .map(function (b) { return b.toString(16).padStart(2, '0'); }).join('');
+      var oidHex = Array.from(seqData.slice(o[1], o[1] + o[0])).map(hex2).join('');
       var name = OID_MAP[oidHex];
-      if (!name) continue;
+      if (!name || fields[name]) continue;
       var vpos = o[1] + o[0];
       var v = derParseLen(seqData, vpos + 1);
-      fields[name] = new TextDecoder('utf-8').decode(seqData.slice(v[1], v[1] + v[0]));
+      fields[name] = decodeStr(seqData[vpos], seqData.slice(v[1], v[1] + v[0]));
     }
     return fields;
   }
@@ -1180,11 +1247,12 @@ function derParseCert(b64) {
 
   var items = parseSeqItems(tbs);
   var idx = (items[0] && items[0].tag === 0xa0) ? 1 : 0;
+  if (!items[idx + 4]) throw new Error('short certificate');
 
-  var serial = Array.from(items[idx].val)
-    .map(function (b) { return b.toString(16).padStart(2, '0'); }).join(':').toUpperCase();
+  var serial = Array.from(items[idx].val).map(hex2).join(':').toUpperCase();
 
   var subject = parseRDN(items[idx + 4].val);
+  var issuer = parseRDN(items[idx + 2].val);
   var validity = items[idx + 3].val;
 
   var v1 = derParseLen(validity, 1);
@@ -1192,13 +1260,26 @@ function derParseCert(b64) {
   var v2 = derParseLen(validity, v1[1] + v1[0] + 1);
   var notAfter = parseTime(validity.slice(v2[1], v2[1] + v2[0]));
 
+  // OpenSSL subject_hash_old: first 4 bytes of MD5(DER subject), little-endian.
+  var h = md5(items[idx + 4].raw);
+  var hash = hex2(h[3]) + hex2(h[2]) + hex2(h[1]) + hex2(h[0]);
+
   return {
-    cn: subject.CN || subject.O || 'Unknown',
+    cn: subject.CN || subject.O || subject.OU || 'Unknown',
     o: subject.O || '',
+    issuer: issuer.CN || issuer.O || issuer.OU || '',
     serial: serial,
     notBefore: notBefore,
-    notAfter: notAfter
+    notAfter: notAfter,
+    hash: hash,
+    fmt: cb.fmt
   };
+}
+
+// Android finds a CA only by the file name <subject_hash_old>.<n>.
+function certNameOk(name, hash) {
+  var m = /^([0-9a-f]{8})\.\d+$/.exec(name);
+  return !!m && m[1] === hash;
 }
 
 // ── Certificates ─────────────────────────────────────────────────────────────
@@ -1224,6 +1305,14 @@ async function refreshCerts() {
 
   lines.forEach(function (line) {
     var parts = line.split('|');
+    if (parts[0] === '+more') {
+      cards.push(
+        '<div class="cert-card"><div class="cert-body">' +
+        '<div class="cert-row">+ ' + esc(parts[2]) + ' more ' + esc(parts[1]) +
+        ' certificates (not listed)</div>' +
+        '</div></div>');
+      return;
+    }
     if (parts.length < 4) return;
     var name = parts[0], source = parts[1], state = parts[2], b64 = parts[3];
     var trusted = state === '1';
@@ -1235,17 +1324,20 @@ async function refreshCerts() {
       cards.push(
         '<div class="cert-card"><div class="cert-body">' +
         '<div class="cert-cn">' + esc(name) + '</div>' +
-        '<div class="cert-row">could not be parsed as DER</div>' +
+        '<div class="cert-row">not a certificate (neither PEM nor DER)</div>' +
         '</div></div>');
       return;
     }
 
     var expired = cert.notAfter < today;
-    var stroke = expired ? 'var(--red)' : (trusted ? 'var(--green)' : 'var(--amber)');
+    // In the store under a name Android never looks up: not really trusted.
+    var badName = !certNameOk(name, cert.hash);
+    var stroke = expired ? 'var(--red)' : (trusted && !badName ? 'var(--green)' : 'var(--amber)');
     var tag = '<span class="cert-tag ' + (source === 'custom' ? 'custom' : 'user') + '">' +
               esc(source) + '</span>';
     if (ruled) tag += '<span class="cert-tag off">excluded by rule</span>';
     else if (!trusted) tag += '<span class="cert-tag off">not in store</span>';
+    else if (badName) tag += '<span class="cert-tag off">wrong file name</span>';
 
     cards.push(
       '<div class="cert-card">' +
@@ -1261,7 +1353,14 @@ async function refreshCerts() {
           '<div class="cert-cn">' + esc(cert.cn) + tag + '</div>' +
           (cert.o && cert.o !== cert.cn ? '<div class="cert-org">' + esc(cert.o) + '</div>' : '') +
           '<div class="cert-meta">' +
-            '<div class="cert-row">file &nbsp;<b>' + esc(name) + '</b></div>' +
+            '<div class="cert-row">file &nbsp;<b>' + esc(name) + '</b> &nbsp;' + esc(cert.fmt) + '</div>' +
+            (badName
+              ? '<div class="cert-row cert-expired">Android ignores this name - rename it to &nbsp;<b>' +
+                esc(cert.hash) + '.0</b></div>'
+              : '') +
+            (cert.issuer && cert.issuer !== cert.cn
+              ? '<div class="cert-row">issued by &nbsp;<b>' + esc(cert.issuer) + '</b></div>'
+              : '') +
             '<div class="cert-row">valid from &nbsp;<b>' + esc(cert.notBefore) + '</b></div>' +
             '<div class="cert-row">valid until &nbsp;<b class="' +
               (expired ? 'cert-expired' : 'cert-valid') + '">' + esc(cert.notAfter) + '</b></div>' +
@@ -1321,7 +1420,7 @@ async function init() {
 
   // Edge-to-edge only: the layout draws behind the system bars (with safe-area
   // padding above), but the bars themselves stay on screen. We deliberately do
-  // NOT call ksu.fullScreen(true) — that hides the clock and the navigation
+  // NOT call ksu.fullScreen(true) - that hides the clock and the navigation
   // buttons until the user swipes, which is useless on 3-button navigation.
   try { if (ksu.enableEdgeToEdge) ksu.enableEdgeToEdge(); } catch (e) {}
   try { if (ksu.fullScreen) ksu.fullScreen(false); } catch (e) {}

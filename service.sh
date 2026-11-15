@@ -1,7 +1,7 @@
 #!/system/bin/sh
 # shellcheck shell=ash disable=SC1091,SC3043
 #
-# service.sh — late_start boot flow, the Live Sync watcher, and every command
+# service.sh - late_start boot flow, the Live Sync watcher, and every command
 # the WebUI calls. All commands print machine-readable "key=value" lines so the
 # UI needs exactly one root call per refresh instead of a dozen.
 #
@@ -42,7 +42,7 @@ watcher_pid() { read_pid_file "$WATCH_PID_FILE"; }
 
 watcher_is_running() { pid_is "$(watcher_pid)" "$WATCHER_ID"; }
 
-# inotifyd_is <pid> — our inotifyd: its argv holds the watched parent dir.
+# inotifyd_is <pid> - our inotifyd: its argv holds the watched parent dir.
 inotifyd_is() { pid_is "$1" "inotifyd" && pid_is "$1" "$USER_CERT_PARENT"; }
 
 # Runtime files are never trusted across a boot.
@@ -76,7 +76,7 @@ ev_stop_inotifyd() {
   rm -f "$INOTIFYD_PID_FILE" 2>/dev/null
 }
 
-# ev_start_inotifyd — (re)start inotifyd on every target that exists right
+# ev_start_inotifyd - (re)start inotifyd on every target that exists right
 # now. The parent is always watched, so a cacerts-added that does not exist
 # yet (no user certificate installed ever) is picked up when Android creates it.
 ev_start_inotifyd() {
@@ -101,13 +101,13 @@ ev_start_inotifyd() {
 
 ev_setup() {
   if [ -z "$BUSYBOX" ] || ! has_applet inotifyd; then
-    log_warn "busybox inotifyd is unavailable — Live Sync will poll every ${POLL_INTERVAL}s"
+    log_warn "busybox inotifyd is unavailable - Live Sync will poll every ${POLL_INTERVAL}s"
     return 1
   fi
   rm -f "$WATCH_FIFO" 2>/dev/null
   $CMD_MKFIFO "$WATCH_FIFO" 2>/dev/null
   if [ ! -p "$WATCH_FIFO" ]; then
-    log_warn "Cannot create $WATCH_FIFO — Live Sync will poll every ${POLL_INTERVAL}s"
+    log_warn "Cannot create $WATCH_FIFO - Live Sync will poll every ${POLL_INTERVAL}s"
     return 1
   fi
   # Read-write open: never blocks, never hits EOF when inotifyd restarts.
@@ -115,13 +115,13 @@ ev_setup() {
   if ! ev_start_inotifyd; then
     exec 3>&-
     rm -f "$WATCH_FIFO" 2>/dev/null
-    log_warn "inotifyd does not run here — Live Sync will poll every ${POLL_INTERVAL}s"
+    log_warn "inotifyd does not run here - Live Sync will poll every ${POLL_INTERVAL}s"
     return 1
   fi
   return 0
 }
 
-# ev_loop — only returns when event mode has to be given up (poll takes over).
+# ev_loop - only returns when event mode has to be given up (poll takes over).
 ev_loop() {
   _pending=0 # a sync is owed
   _rearm=0   # the set of watch targets changed, restart inotifyd first
@@ -163,7 +163,7 @@ ev_loop() {
         _nev=$((_nev + 1))
         if [ "$_pending" = 0 ]; then
           _pending=1
-          # The burst starts when its first event ARRIVES — not when this
+          # The burst starts when its first event ARRIVES - not when this
           # read began (after a 60 s idle wait that would count as "late"
           # and split every burst in two, as seen on the phone).
           _first=$UPTIME_S
@@ -179,7 +179,7 @@ ev_loop() {
       if [ "$UPTIME_S" -le "$_t0" ] && [ "$_t" -ge 1 ]; then
         _fast=$((_fast + 1))
         if [ "$_fast" -gt 20 ]; then
-          log_error "Event pipe is not readable — giving up event mode"
+          log_error "Event pipe is not readable - giving up event mode"
           return 1
         fi
       else
@@ -189,7 +189,7 @@ ev_loop() {
 
     if [ "$_rearm" = 1 ]; then
       _rearm=0
-      log_info "Watch targets changed — restarting inotifyd"
+      log_info "Watch targets changed - restarting inotifyd"
       ev_start_inotifyd
     fi
 
@@ -202,7 +202,7 @@ ev_loop() {
     fi
 
     # Health check. An inotifyd that dies silently would turn Live Sync off
-    # without anyone noticing — exactly the v3.1 inotifywait failure.
+    # without anyone noticing - exactly the v3.1 inotifywait failure.
     if ! pid_alive "$EV_PID"; then
       uptime_s
       if [ $((UPTIME_S - _win)) -gt "$WATCH_RESTART_WINDOW" ]; then
@@ -212,13 +212,13 @@ ev_loop() {
       _restarts=$((_restarts + 1))
       write_stats "WATCH_RESTARTS=$_restarts"
       if [ "$_restarts" -gt "$WATCH_RESTART_MAX" ]; then
-        log_warn "inotifyd failed $_restarts times within ${WATCH_RESTART_WINDOW}s — switching to poll mode"
+        log_warn "inotifyd failed $_restarts times within ${WATCH_RESTART_WINDOW}s - switching to poll mode"
         return 1
       fi
       if [ "$EV_PID" -gt 0 ]; then
-        log_warn "inotifyd (pid $EV_PID) is gone — restarting ($_restarts/$WATCH_RESTART_MAX)"
+        log_warn "inotifyd (pid $EV_PID) is gone - restarting ($_restarts/$WATCH_RESTART_MAX)"
       else
-        log_warn "inotifyd is not running — retrying ($_restarts/$WATCH_RESTART_MAX)"
+        log_warn "inotifyd is not running - retrying ($_restarts/$WATCH_RESTART_MAX)"
       fi
       if ev_start_inotifyd; then
         # Changes made while it was down were not seen: resync once.
@@ -266,7 +266,7 @@ poll_loop() {
 # ── The watcher itself ────────────────────────────────────────────────────────
 run_watcher() {
   if watcher_is_running && [ "$(watcher_pid)" != "$$" ]; then
-    log_warn "Watcher already running (pid $(watcher_pid)) — not starting a second one"
+    log_warn "Watcher already running (pid $(watcher_pid)) - not starting a second one"
     return 0
   fi
 
@@ -340,7 +340,7 @@ cmd_watch_stop() {
     if pid_alive "$_p"; then
       kill -9 "$_p" 2>/dev/null
       kill_children "$_p" KILL
-      log_warn "Watcher (pid $_p) ignored TERM — killed"
+      log_warn "Watcher (pid $_p) ignored TERM - killed"
     fi
   fi
   # An inotifyd orphaned by a hard kill.
@@ -362,7 +362,7 @@ cmd_force_inject() {
     sync_store
     _rc=$?
     if [ "$_rc" -ne 0 ]; then
-      log_warn "Refresh failed verification — rebuilding the overlay from scratch"
+      log_warn "Refresh failed verification - rebuilding the overlay from scratch"
       inject_full
       _rc=$?
     fi
@@ -386,10 +386,10 @@ cmd_sync() {
   do_live_sync
   _rc=$?
 
-  # Live Sync is meant to be on but the watcher is gone — most likely it was
+  # Live Sync is meant to be on but the watcher is gone - most likely it was
   # started from the WebUI and died with the manager app. Bring it back.
   if [ "$(read_cfg LIVE_SYNC)" = "1" ] && ! watcher_is_running; then
-    log_warn "Watcher was not running — starting it"
+    log_warn "Watcher was not running - starting it"
     cmd_watch_start >/dev/null
     if watcher_is_running; then
       echo "watcher=restarted"
@@ -463,6 +463,7 @@ cmd_status() {
   _users=0
   _trusted=0
   _excluded=0
+  _badname=0
   if [ -d "$USER_CERT_DIR" ]; then
     for _f in "$USER_CERT_DIR"/*; do
       [ -f "$_f" ] || continue
@@ -471,13 +472,20 @@ cmd_status() {
         _excluded=$((_excluded + 1))
         continue
       fi
-      [ -f "$_store/${_f##*/}" ] && _trusted=$((_trusted + 1))
+      [ -f "$_store/${_f##*/}" ] || continue
+      # In the store under a name Android never looks up: not trusted.
+      if cert_name_ok "$_f"; then
+        _trusted=$((_trusted + 1))
+      else
+        _badname=$((_badname + 1))
+      fi
     done
   fi
 
   _cust=0
   _ctrusted=0
   _cexcluded=0
+  _cbadname=0
   if [ -d "$CUSTOM_CERT_DIR" ]; then
     for _f in "$CUSTOM_CERT_DIR"/*; do
       [ -f "$_f" ] || continue
@@ -486,7 +494,12 @@ cmd_status() {
         _cexcluded=$((_cexcluded + 1))
         continue
       fi
-      [ -f "$_store/${_f##*/}" ] && _ctrusted=$((_ctrusted + 1))
+      [ -f "$_store/${_f##*/}" ] || continue
+      if cert_name_ok "$_f"; then
+        _ctrusted=$((_ctrusted + 1))
+      else
+        _cbadname=$((_cbadname + 1))
+      fi
     done
   fi
 
@@ -508,9 +521,11 @@ cmd_status() {
   printf 'USER_CERTS=%s\n' "$_users"
   printf 'USER_TRUSTED=%s\n' "$_trusted"
   printf 'USER_EXCLUDED=%s\n' "$_excluded"
+  printf 'USER_BADNAME=%s\n' "$_badname"
   printf 'CUSTOM_CERTS=%s\n' "$_cust"
   printf 'CUSTOM_TRUSTED=%s\n' "$_ctrusted"
   printf 'CUSTOM_EXCLUDED=%s\n' "$_cexcluded"
+  printf 'CUSTOM_BADNAME=%s\n' "$_cbadname"
   printf 'CUSTOM_DIR=%s\n' "$CUSTOM_CERT_DIR"
   printf 'FAIL=%s\n' "$(read_fail_count)"
   printf 'FAIL_LIMIT=%s\n' "$FAIL_LIMIT"
@@ -538,31 +553,35 @@ cmd_status() {
   printf 'TOOL_SETSID=%s\n' "${CMD_SETSID:-none}"
   printf 'NOW=%s\n' "$(date +%s)"
   printf 'rc=0\n'
-  unset _store _users _trusted _excluded _wstate _f _ip _ia _cust _ctrusted _cexcluded
+  unset _store _users _trusted _excluded _badname _wstate _f _ip _ia _cust _ctrusted _cexcluded _cbadname
 }
 
-# Emits: <name>|<source>|<trusted 0/1>|<base64 DER>
+# Emits: <name>|<source>|<trusted 0/1/x>|<base64 of the file (PEM or DER)>
+# At most CERTS_MAX per source; the rest is reported as "+more|<source>|<n>".
+CERTS_MAX=40
 cmd_certs() {
-  _n=0
+  _store=$(trust_store_dir)
   for _dir in "$USER_CERT_DIR" "$CUSTOM_CERT_DIR"; do
     [ -d "$_dir" ] || continue
     if [ "$_dir" = "$USER_CERT_DIR" ]; then _src="user"; else _src="custom"; fi
+    _n=0
     for _f in "$_dir"/*; do
       [ -f "$_f" ] || continue
       _n=$((_n + 1))
-      [ "$_n" -gt 40 ] && break
+      [ "$_n" -gt "$CERTS_MAX" ] && continue
       _base="${_f##*/}"
-      if [ -f "$(trust_store_dir)/$_base" ]; then
+      if [ -f "$_store/$_base" ]; then
         _t=1
       elif [ -d "$CERT_STAGE" ] && [ ! -f "$CERT_STAGE/$_base" ]; then
         _t=x
       else
         _t=0
       fi
-      printf '%s|%s|%s|%s\n' "$_base" "$_src" "$_t" "$(base64 "$_f" 2>/dev/null | tr -d '\n')"
+      printf '%s|%s|%s|%s\n' "$_base" "$_src" "$_t" "$(${CMD_BASE64:-base64} "$_f" 2>/dev/null | tr -d '\n')"
     done
+    [ "$_n" -gt "$CERTS_MAX" ] && printf '+more|%s|%s\n' "$_src" "$((_n - CERTS_MAX))"
   done
-  unset _n _dir _src _f _base _t
+  unset _store _n _dir _src _f _base _t
 }
 
 # Prints the command the WebUI should pipe through to base64-encode output.
@@ -604,11 +623,11 @@ boot_flow() {
   log_info "Zygote ready after ${_z}s"
 
   # Android >= 14: the injection deferred by post-fs-data.sh happens here.
-  # This block MUST run before the LIVE_SYNC check below — in v2 the early
+  # This block MUST run before the LIVE_SYNC check below - in v2 the early
   # `exit 0` for a disabled Live Sync also skipped the injection entirely.
   if [ "$SDK" -ge 34 ]; then
     if [ "$(read_stat BLOCKED)" = "1" ]; then
-      log_error "Deferred inject skipped — bootloop guard is active"
+      log_error "Deferred inject skipped - bootloop guard is active"
     else
       if inject_high; then
         log_info "Deferred inject complete"
@@ -624,15 +643,15 @@ boot_flow() {
   if wait_for_prop sys.boot_completed 1 180; then
     sleep "$SETTLE_SECONDS"
     write_fail_count 0
-    log_info "Boot completed — fail counter reset"
+    log_info "Boot completed - fail counter reset"
   else
-    log_warn "sys.boot_completed never turned 1 — fail counter left at $(read_fail_count)"
+    log_warn "sys.boot_completed never turned 1 - fail counter left at $(read_fail_count)"
   fi
 
   if [ "$(read_cfg LIVE_SYNC)" = "1" ]; then
     run_watcher
   else
-    log_info "Live Sync is disabled — watcher not started"
+    log_info "Live Sync is disabled - watcher not started"
     write_stats "LIVESYNC_STATUS=disabled" "LIVESYNC_PID=0"
   fi
 }

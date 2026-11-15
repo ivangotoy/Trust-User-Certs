@@ -1,5 +1,5 @@
 ##########################################################################################
-# TrustUserCerts — installer
+# TrustUserCerts - installer
 ##########################################################################################
 
 SKIPUNZIP=0
@@ -7,7 +7,7 @@ SKIPUNZIP=0
 print_modname() {
   ui_print " "
   ui_print "****************************"
-  ui_print "   TrustUserCerts v4"
+  ui_print "   TrustUserCerts $(sed -n 's/^version=//p' "$MODPATH/module.prop" 2>/dev/null)"
   ui_print "   Android 7 - 16"
   ui_print "   Magisk / KSU / APatch"
   ui_print "****************************"
@@ -35,7 +35,7 @@ on_install() {
   mkdir -p "$DATA_DIR/cert_stage" "$DATA_DIR/base_certs"
 
   # cacerts-added belongs to Android (system:system). v3.1 and older created
-  # it as root, which blocks installing the first user certificate — undo it.
+  # it as root, which blocks installing the first user certificate - undo it.
   _tuc_ud=/data/misc/user/0/cacerts-added
   if [ -d "$_tuc_ud" ] && [ "$(stat -c %u "$_tuc_ud" 2>/dev/null)" = 0 ]; then
     if rmdir "$_tuc_ud" 2>/dev/null; then
@@ -49,7 +49,7 @@ on_install() {
   fi
   unset _tuc_ud
 
-  # Root only — the pre-v3 drop-in dir lived in /data/local/tmp, which any adb
+  # Root only - the pre-v3 drop-in dir lived in /data/local/tmp, which any adb
   # shell could write to, i.e. anyone with adb could add a *system* trusted CA.
   chmod 700 "$DATA_DIR" "$CUSTOM_CERT_DIR"
 

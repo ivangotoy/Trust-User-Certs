@@ -1,7 +1,7 @@
 #!/system/bin/sh
 # shellcheck shell=ash disable=SC3043
 #
-# common.sh — paths, logging, locking, config/stats and permission helpers.
+# common.sh - paths, logging, locking, config/stats and permission helpers.
 # Sourced by post-fs-data.sh, service.sh and sh/inject.sh.
 #
 # Strictly POSIX sh: no `local` outside functions, no bashisms, no `expr`.
@@ -34,7 +34,7 @@ BASE_CERT_DIR="$DATA_DIR/base_certs"
 
 # Root-only drop-in dir for manually added certificates.
 CUSTOM_CERT_DIR="$DATA_DIR/certs"
-# Pre-v3 location — world-writable by the shell user, migrated away on boot.
+# Pre-v3 location - world-writable by the shell user, migrated away on boot.
 LEGACY_CUSTOM_CERT_DIR="/data/local/tmp/cert"
 
 USER_CERT_DIR="/data/misc/user/0/cacerts-added"
@@ -45,6 +45,8 @@ SYSTEM_CERT_DIR="/system/etc/security/cacerts"
 APEX_CONSCRYPT_DIR="/apex/com.android.conscrypt/cacerts"
 
 TEMP_MOUNT="/mnt/tuc_stage"
+
+CR=$(printf '\r')
 
 # ── Tunables ──────────────────────────────────────────────────────────────────
 FAIL_LIMIT=3
@@ -57,13 +59,13 @@ SETTLE_SECONDS=15
 WATCH_MASK="nwdmyDM"     # cert dirs: create, close_write, delete, moves, self
 WATCH_PARENT_MASK="nydm" # parent: cacerts-added created / deleted / moved
 WATCH_DEBOUNCE=2         # s of quiet after the last event before syncing
-WATCH_MAX_DELAY=10       # s — sync anyway if events never stop
-WATCH_TICK=60            # s — idle wake-up to health-check inotifyd
+WATCH_MAX_DELAY=10       # s - sync anyway if events never stop
+WATCH_TICK=60            # s - idle wake-up to health-check inotifyd
 WATCH_RESTART_MAX=5      # unexpected inotifyd deaths allowed ...
 WATCH_RESTART_WINDOW=600 # ... within this many seconds, then poll mode
 POLL_INTERVAL=30         # s between poll-mode fingerprints
 
-# ── SDK (never leave this unset — every branch below depends on it) ───────────
+# ── SDK (never leave this unset - every branch below depends on it) ───────────
 SDK="$(getprop ro.build.version.sdk 2>/dev/null)"
 case "$SDK" in
   '' | *[!0-9]*) SDK=0 ;;
@@ -98,7 +100,7 @@ has_applet() {
   printf '%s\n' "$_BB_APPLETS" | grep -qx "$1"
 }
 
-# resolve_cmd <name> — prints a runnable command prefix, or nothing if the tool
+# resolve_cmd <name> - prints a runnable command prefix, or nothing if the tool
 # is unavailable in any form. Intentionally unquoted at the call site so
 # "busybox nsenter" splits into two words.
 resolve_cmd() {
@@ -121,17 +123,128 @@ CMD_PKILL=$(resolve_cmd pkill)
 CMD_STAT=$(resolve_cmd stat)
 CMD_BASE64=$(resolve_cmd base64)
 CMD_MKFIFO=$(resolve_cmd mkfifo)
+CMD_OD=$(resolve_cmd od)
+CMD_AWK=$(resolve_cmd awk)
+CMD_MD5SUM=$(resolve_cmd md5sum)
+
+# cert_name_hash <file> - prints the OpenSSL subject_hash_old of a PEM or DER
+# certificate (the <hash> Android expects in the file name <hash>.<n>): the
+# first 4 bytes of MD5 over the DER subject, little-endian. Prints nothing and
+# returns 1 if the file is not a certificate or a tool is missing.
+cert_name_hash() {
+  [ -n "$CMD_OD" ] && [ -n "$CMD_AWK" ] && [ -n "$CMD_MD5SUM" ] || return 1
+  [ -f "$1" ] || return 1
+  if grep -q -- '-----BEGIN' "$1" 2>/dev/null; then
+    [ -n "$CMD_BASE64" ] || return 1
+    _ch_esc=$(sed -n '/-----BEGIN/,/-----END/p' "$1" 2>/dev/null | grep -v -- '-----' |
+      tr -d '\r' | $CMD_BASE64 -d 2>/dev/null | $CMD_OD -An -v -tx1 2>/dev/null | _cert_subject_esc)
+  else
+    _ch_esc=$($CMD_OD -An -v -tx1 "$1" 2>/dev/null | _cert_subject_esc)
+  fi
+  [ -n "$_ch_esc" ] || {
+    unset _ch_esc
+    return 1
+  }
+  # shellcheck disable=SC2059 # the format is a string of \ooo escapes only
+  _ch_md5=$(printf "$_ch_esc" | $CMD_MD5SUM 2>/dev/null)
+  _ch_md5="${_ch_md5%% *}"
+  unset _ch_esc
+  case "$_ch_md5" in
+    [0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f]*) ;;
+    *)
+      unset _ch_md5
+      return 1
+      ;;
+  esac
+  _ch_h=$(printf '%.8s' "$_ch_md5")
+  unset _ch_md5
+  # Reverse the byte order of the first 4 bytes.
+  _ch_b4=${_ch_h#??????}
+  _ch_b3=${_ch_h#????}
+  _ch_b3=${_ch_b3%??}
+  _ch_b2=${_ch_h#??}
+  _ch_b2=${_ch_b2%????}
+  _ch_b1=${_ch_h%??????}
+  printf '%s%s%s%s\n' "$_ch_b4" "$_ch_b3" "$_ch_b2" "$_ch_b1"
+  unset _ch_h _ch_b1 _ch_b2 _ch_b3 _ch_b4
+  return 0
+}
+
+# cert_name_ok <file> - true if Android can find the certificate by its file
+# name: <subject_hash_old>.<n>. If the hash cannot be computed (a tool is
+# missing), only the shape of the name is checked.
+cert_name_ok() {
+  _cn_base="${1##*/}"
+  case "$_cn_base" in
+    [0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f].*) ;;
+    *)
+      unset _cn_base
+      return 1
+      ;;
+  esac
+  case "${_cn_base#*.}" in
+    '' | *[!0-9]*)
+      unset _cn_base
+      return 1
+      ;;
+  esac
+  _cn_hash=$(cert_name_hash "$1") || {
+    unset _cn_base _cn_hash
+    return 0
+  }
+  [ "${_cn_base%%.*}" = "$_cn_hash" ]
+  _cn_rc=$?
+  unset _cn_base _cn_hash
+  return "$_cn_rc"
+}
+
+# Reads `od -tx1` output of a DER certificate and prints its subject
+# (the whole DER element) as printf \ooo escapes, or nothing.
+_cert_subject_esc() {
+  $CMD_AWK '
+    BEGIN { for (i = 0; i < 256; i++) H[sprintf("%02x", i)] = i; n = 0 }
+    { for (i = 1; i <= NF; i++) B[n++] = H[$i] }
+    function hdr(p,   l, k, j) {
+      if (p + 1 >= n) { BAD = 1; return }
+      l = B[p + 1]
+      if (l < 128) { L = l; C = p + 2; return }
+      k = l - 128
+      if (k < 1 || k > 4) { BAD = 1; return }
+      L = 0
+      for (j = 0; j < k; j++) L = L * 256 + B[p + 2 + j]
+      C = p + 2 + k
+    }
+    END {
+      BAD = 0
+      if (n < 16 || B[0] != 48) exit
+      hdr(0); if (BAD) exit
+      p = C
+      if (B[p] != 48) exit
+      hdr(p); if (BAD) exit
+      q = C
+      if (B[q] == 160) { hdr(q); if (BAD) exit; q = C + L }
+      # serial, signature algorithm, issuer, validity
+      for (s = 0; s < 4; s++) { hdr(q); if (BAD) exit; q = C + L }
+      if (B[q] != 48) exit
+      hdr(q); if (BAD) exit
+      e = C + L
+      if (e > n) exit
+      out = ""
+      for (i = q; i < e; i++) out = out sprintf("\\%03o", B[i])
+      print out
+    }'
+}
 
 log_tools() {
   log_debug "busybox: ${BUSYBOX:-none}"
   log_debug "tools: nsenter=${CMD_NSENTER:-MISSING} setsid=${CMD_SETSID:-none} nohup=${CMD_NOHUP:-none} pgrep=${CMD_PGREP:-none} stat=${CMD_STAT:-none} base64=${CMD_BASE64:-none} mkfifo=${CMD_MKFIFO:-none}"
   if has_applet inotifyd; then log_debug "busybox inotifyd: yes"; else log_debug "busybox inotifyd: no"; fi
-  [ -n "$CMD_NSENTER" ] || log_warn "nsenter is unavailable — certificates cannot be pushed into the zygote mount namespace, so apps started before the inject may not see them until a reboot"
+  [ -n "$CMD_NSENTER" ] || log_warn "nsenter is unavailable - certificates cannot be pushed into the zygote mount namespace, so apps started before the inject may not see them until a reboot"
   return 0
 }
 
 # ── Pure-shell replacements for tools that may be missing ────────────────────
-# list_pids_by_name <substring> — pgrep, or /proc walked by hand.
+# list_pids_by_name <substring> - pgrep, or /proc walked by hand.
 list_pids_by_name() {
   if [ -n "$CMD_PGREP" ]; then
     $CMD_PGREP "$1" 2>/dev/null
@@ -148,7 +261,7 @@ list_pids_by_name() {
   return 0
 }
 
-# kill_children <ppid> [signal] — pkill -P, or /proc/<pid>/stat parsed by hand.
+# kill_children <ppid> [signal] - pkill -P, or /proc/<pid>/stat parsed by hand.
 kill_children() {
   _kc_ppid="$1"
   _kc_sig="${2:-TERM}"
@@ -169,7 +282,7 @@ kill_children() {
   return 0
 }
 
-# file_size <path> — stat, falling back to wc.
+# file_size <path> - stat, falling back to wc.
 file_size() {
   [ -f "$1" ] || {
     printf '0'
@@ -188,7 +301,7 @@ file_size() {
 }
 
 # ── Process identity (a PID from a file is never trusted on its own) ──────────
-# pid_alive <pid> — exists and is not a zombie. Builtins only (hot path).
+# pid_alive <pid> - exists and is not a zombie. Builtins only (hot path).
 pid_alive() {
   case "$1" in '' | 0 | *[!0-9]*) return 1 ;; esac
   [ -r "/proc/$1/stat" ] || return 1
@@ -204,14 +317,14 @@ pid_alive() {
   return 0
 }
 
-# pid_is <pid> <needle> — alive AND its command line contains <needle>, so a
+# pid_is <pid> <needle> - alive AND its command line contains <needle>, so a
 # PID recycled by some other process (after a reboot, say) never matches.
 pid_is() {
   pid_alive "$1" || return 1
   grep -q -F -- "$2" "/proc/$1/cmdline" 2>/dev/null
 }
 
-# read_pid_file <file> — prints the number in <file>, or 0.
+# read_pid_file <file> - prints the number in <file>, or 0.
 read_pid_file() {
   _rp=$(cat "$1" 2>/dev/null)
   case "$_rp" in
@@ -221,7 +334,7 @@ read_pid_file() {
   unset _rp
 }
 
-# uptime_s — whole seconds since boot, builtins only (no date spawn).
+# uptime_s - whole seconds since boot, builtins only (no date spawn).
 uptime_s() {
   read -r _up _ </proc/uptime 2>/dev/null
   UPTIME_S="${_up%%.*}"
@@ -229,7 +342,7 @@ uptime_s() {
   unset _up
 }
 
-# daemon_detach — leave the caller's cgroups and opt out of the low-memory
+# daemon_detach - leave the caller's cgroups and opt out of the low-memory
 # killer. A watcher started from the WebUI is a child of the manager app's root
 # shell, so it inherits the app's cgroup: when Android freezes or kills the
 # manager, the watcher dies with it. Moving to the root cgroup and pinning
@@ -248,7 +361,7 @@ daemon_detach() {
   return 0
 }
 
-# spawn_detached <args...> — start a process that survives the calling shell.
+# spawn_detached <args...> - start a process that survives the calling shell.
 # setsid, then nohup, then a plain background job with every fd redirected.
 spawn_detached() {
   if [ -n "$CMD_SETSID" ]; then
@@ -381,7 +494,7 @@ read_stat() {
   sed -n "s/^$1=//p" "$STATS_FILE" 2>/dev/null | tail -n 1
 }
 
-# write_stats KEY=VALUE [KEY=VALUE ...] — one locked read-modify-write for all
+# write_stats KEY=VALUE [KEY=VALUE ...] - one locked read-modify-write for all
 # keys, so the watcher and a UI-triggered sync can never clobber each other.
 write_stats() {
   lock_acquire "$STATS_LOCK" 5 || {
@@ -491,7 +604,7 @@ wait_for_zygote() { # wait_for_zygote <timeout>
 }
 
 # ── Permissions ───────────────────────────────────────────────────────────────
-# One entry point, branching internally — calling the wrong variant for the
+# One entry point, branching internally - calling the wrong variant for the
 # running Android version is no longer possible.
 fix_permissions() {
   _fp_dir="$1"
@@ -539,7 +652,7 @@ apply_selinux_context() {
 # ── cacerts-added ownership ───────────────────────────────────────────────────
 # v3.1 and older created $USER_CERT_DIR as root:root 0755 at every boot. Android
 # creates it itself (system:system 0755) when the first user certificate is
-# installed, and KeyChain — running as uid system — cannot write into a
+# installed, and KeyChain - running as uid system - cannot write into a
 # root-owned one, so on a device without user certificates that mkdir made
 # installing the first one impossible. Undo it:
 #   root-owned and empty     -> rmdir; Android recreates it correctly
@@ -558,13 +671,13 @@ repair_user_cert_dir() {
   fi
   unset _ru_uid
   if rmdir "$USER_CERT_DIR" 2>/dev/null; then
-    log_info "Removed an empty root-owned $USER_CERT_DIR (left by an older version) — Android recreates it with the right owner"
+    log_info "Removed an empty root-owned $USER_CERT_DIR (left by an older version) - Android recreates it with the right owner"
     return 0
   fi
   chown 1000:1000 "$USER_CERT_DIR" 2>/dev/null
   chmod 0755 "$USER_CERT_DIR" 2>/dev/null
   restorecon "$USER_CERT_DIR" 2>/dev/null
-  log_warn "$USER_CERT_DIR was owned by root — changed to system:system so Android can add certificates"
+  log_warn "$USER_CERT_DIR was owned by root - changed to system:system so Android can add certificates"
   return 0
 }
 

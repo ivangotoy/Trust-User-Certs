@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-  <title>TrustUserCerts — Help</title>
+  <title>TrustUserCerts - Help</title>
   <style>
     :root {
       --bg:#080b0f;--bg2:#0c1018;--surface:#101620;--surface2:#141c28;
@@ -127,10 +127,10 @@
 <!-- 1 -->
 <div class="sec-title" id="what">1 · what this module does</div>
 <div class="box">
-  <p>Android keeps CA certificates in two stores. The <strong>system</strong> store is trusted by every app. The <strong>user</strong> store — where a certificate goes when you install it in Settings — is ignored by almost every app since Android 7, unless the app opts in.</p>
+  <p>Android keeps CA certificates in two stores. The <strong>system</strong> store is trusted by every app. The <strong>user</strong> store - where a certificate goes when you install it in Settings - is ignored by almost every app since Android 7, unless the app opts in.</p>
   <p>That makes HTTPS inspection tools (HttpCanary, mitmproxy, Burp, Charles…) useless for most apps: you install their CA, and apps still refuse the connection. This module copies your user certificates into the system trust store, so <strong>every app trusts them as if they came with the system</strong>.</p>
   <div class="note">
-    Install and remove certificates the normal way, in Android Settings. With <strong>Live Sync</strong> on, the change reaches the system store within a few seconds — no reboot.
+    Install and remove certificates the normal way, in Android Settings. With <strong>Live Sync</strong> on, the change reaches the system store within a few seconds - no reboot.
   </div>
   <div class="note warn">
     Tested on a <strong>Poco F6 Pro</strong> with the <strong>Xiaomi.eu ROM</strong> (HyperOS 3, Android 16) and SukiSU-Ultra only. The Android 7–13 path and other devices, ROMs and root managers are supported by design but have not been tested by the author. If something does not work on your device, the service log usually says why.
@@ -146,7 +146,7 @@
   <h3>In Android Settings</h3>
   <ol>
     <li>Copy the certificate file to the phone, e.g. to <code>Download</code>.</li>
-    <li>Open <strong>Install a certificate</strong>. The menu path differs between ROMs — the Settings search for <em>CA certificate</em> usually finds it.</li>
+    <li>Open <strong>Install a certificate</strong>. The menu path differs between ROMs - the Settings search for <em>CA certificate</em> usually finds it.</li>
     <li>Choose <strong>CA certificate</strong>, confirm the warning, pick the file.</li>
   </ol>
   <p>On the <strong>Xiaomi.eu ROM (HyperOS 3)</strong> the path is:</p>
@@ -163,13 +163,13 @@
 
   <h3>The three options in "Install a certificate"</h3>
   <ul>
-    <li><strong>CA certificate</strong> — a certificate authority your phone should <strong>trust</strong>. This is the one proxy and inspection tools need, and the only one this module works with.</li>
-    <li><strong>VPN &amp; app user certificate</strong> — a key and certificate that identify <strong>your phone</strong> to a server: VPN login, apps using client certificates. It does not make anything trusted.</li>
-    <li><strong>Certificate</strong> — called <em>Wi-Fi certificate</em> on most ROMs: credentials for enterprise Wi-Fi (802.1X / EAP). Not related to this module.</li>
+    <li><strong>CA certificate</strong> - a certificate authority your phone should <strong>trust</strong>. This is the one proxy and inspection tools need, and the only one this module works with.</li>
+    <li><strong>VPN &amp; app user certificate</strong> - a key and certificate that identify <strong>your phone</strong> to a server: VPN login, apps using client certificates. It does not make anything trusted.</li>
+    <li><strong>Certificate</strong> - called <em>Wi-Fi certificate</em> on most ROMs: credentials for enterprise Wi-Fi (802.1X / EAP). Not related to this module.</li>
   </ul>
 
   <h3>Trusted credentials vs. User credentials</h3>
-  <p><strong>Trusted credentials → User</strong> lists the CA certificates in the user store — exactly what this module reads. <strong>User credentials</strong> lists keys and certificates in Android's keystore ("Installed for VPN and apps"): client certificates, keys created by apps, and on some ROMs copies of installed CAs. Nothing there is trusted for HTTPS, and the module neither reads nor changes it.</p>
+  <p><strong>Trusted credentials → User</strong> lists the CA certificates in the user store - exactly what this module reads. <strong>User credentials</strong> lists keys and certificates in Android's keystore ("Installed for VPN and apps"): client certificates, keys created by apps, and on some ROMs copies of installed CAs. Nothing there is trusted for HTTPS, and the module neither reads nor changes it.</p>
   <div class="note">
     Proxy apps such as HttpCanary do not need a VPN certificate: their "VPN" is a local <code>VpnService</code> that routes traffic through the app, and decrypting HTTPS depends only on their <strong>CA certificate</strong> being trusted.
   </div>
@@ -178,7 +178,7 @@
   <div class="tbl"><table>
     <tr><th>extension</th><th>what it is</th></tr>
     <tr><td>.crt .cer .pem .der</td><td>An X.509 certificate, as text (PEM) or binary (DER). This is what you want. Install it as <strong>CA certificate</strong>.</td></tr>
-    <tr><td>.p12 .pfx</td><td>A PKCS#12 bundle: certificate <strong>and private key</strong>. It is not a CA certificate — Android offers it as a VPN / app or Wi-Fi certificate. Extract the certificate first (below).</td></tr>
+    <tr><td>.p12 .pfx</td><td>A PKCS#12 bundle: certificate <strong>and private key</strong>. It is not a CA certificate - Android offers it as a VPN / app or Wi-Fi certificate. Extract the certificate first (below).</td></tr>
   </table></div>
   <pre><span class="cm"># Termux: pkg install openssl-tool</span>
 openssl pkcs12 -in file.p12 -nokeys -out ca.pem</pre>
@@ -195,20 +195,21 @@ openssl pkcs12 -in file.p12 -nokeys -out ca.pem</pre>
   <p>They are added to the system store on every boot and every sync, exactly like user certificates, and appear in Settings under <strong>System</strong>. The directory is root-only (<code>0700</code>) on purpose: whoever can write to it can make the whole phone trust a CA. Live Sync watches it too, so a new file is picked up within seconds.</p>
 
   <h3>The file name matters</h3>
-  <p>Android finds certificates by the hash of their subject, so the file <strong>must</strong> be named <code>&lt;subject_hash_old&gt;.0</code>, e.g. <code>87bc3517.0</code>. Any other name is copied but ignored by Android; the log warns about it. PEM and DER content both work.</p>
+  <p>Android finds certificates by the hash of their subject, so the file <strong>must</strong> be named <code>&lt;subject_hash_old&gt;.0</code>, e.g. <code>87bc3517.0</code>. Any other name is copied but ignored by Android. PEM and DER content both work, so an export from a proxy app such as HttpCanary can be copied in as it is.</p>
+  <p>You do not need openssl to find the name: drop the file in under any name and press <strong>Sync</strong>. Its card in the certificate list is tagged <strong>wrong file name</strong> and shows the right one, e.g. <code>rename it to 87bc3517.0</code>.</p>
   <pre>openssl x509 -in ca.pem -noout -subject_hash_old
 <span class="cm"># 87bc3517  -&gt;  name the file 87bc3517.0</span></pre>
 
   <h3>Easiest way, without openssl</h3>
-  <p>Install the certificate once in Settings — Android names the file correctly — then copy it over and, if you like, remove it from Settings:</p>
-  <pre>su -c "cp /data/misc/user/0/cacerts-added/87bc3517.0 /data/adb/trust-user-certs/certs/"
-su -c "chmod 644 /data/adb/trust-user-certs/certs/87bc3517.0"</pre>
+  <p>Install the certificate once in Settings - Android names the file correctly - then copy it over and, if you like, remove it from Settings:</p>
+  <pre>su -c 'cp /data/misc/user/0/cacerts-added/87bc3517.0 /data/adb/trust-user-certs/certs/'
+su -c 'chmod 644 /data/adb/trust-user-certs/certs/87bc3517.0'</pre>
   <p>The certificate list shows it with a <strong>custom</strong> tag, and the header chip counts it.</p>
   <div class="note warn">
     Uninstalling the module deletes <code>/data/adb/trust-user-certs</code>, <strong>including this directory</strong>. Keep a copy of your custom certificates somewhere else. Updating the module keeps them.
   </div>
   <div class="note">
-    An app that checks whether "its" certificate is installed may only look at the user store and warn that it is missing — even though every app trusts the certificate through the system store.
+    An app that checks whether "its" certificate is installed may only look at the user store and warn that it is missing - even though every app trusts the certificate through the system store.
   </div>
 </div>
 
@@ -217,7 +218,7 @@ su -c "chmod 644 /data/adb/trust-user-certs/certs/87bc3517.0"</pre>
 <div class="box">
   <p>The module never modifies <code>/system</code>. It mounts a merged copy of the trust store over the real one. The copy is rebuilt from scratch each time:</p>
   <ol>
-    <li><code>base_certs</code> — a snapshot of the stock system store, taken while no overlay of the module is active;</li>
+    <li><code>base_certs</code> - a snapshot of the stock system store, taken while no overlay of the module is active;</li>
     <li>plus your user certificates and your custom certificates;</li>
     <li>minus anything matched by an exclusion rule.</li>
   </ol>
@@ -231,7 +232,7 @@ su -c "chmod 644 /data/adb/trust-user-certs/certs/87bc3517.0"</pre>
 
   <h3>Verification</h3>
   <p>Every inject and sync is checked against the live store: the store must hold at least the staged set, and every user and custom certificate must actually be there. The result is <code>INJECT_OK</code> and a log line such as:</p>
-  <pre>Verify OK — 151 certs live, 1/1 user certs trusted, 1/1 custom certs trusted</pre>
+  <pre>Verify OK - 151 certs live, 1/1 user certs trusted, 1/1 custom certs trusted</pre>
   <p>A mount that silently failed is reported as a failure, never as a success.</p>
   <div class="note">
     Apps that were already running when a certificate was added may keep their old trust cache until they are restarted.
@@ -241,23 +242,23 @@ su -c "chmod 644 /data/adb/trust-user-certs/certs/87bc3517.0"</pre>
 <!-- 5 -->
 <div class="sec-title" id="livesync">5 · live sync</div>
 <div class="box">
-  <p>Live Sync keeps the system store in step with your certificates while the phone runs. It uses the root manager's own <strong>busybox <code>inotifyd</code></strong> — Magisk, KernelSU, SukiSU and APatch all ship it — so the kernel reports every change and nothing is polled.</p>
+  <p>Live Sync keeps the system store in step with your certificates while the phone runs. It uses the root manager's own <strong>busybox <code>inotifyd</code></strong> - Magisk, KernelSU, SukiSU and APatch all ship it - so the kernel reports every change and nothing is polled.</p>
 
   <h3>What is watched</h3>
   <ul>
-    <li><code>/data/misc/user/0/cacerts-added</code> — certificates installed or removed in Settings</li>
-    <li><code>/data/misc/user/0</code> — notices <code>cacerts-added</code> being created (your first certificate ever) or removed</li>
-    <li><code>/data/adb/trust-user-certs/certs</code> — your custom certificates</li>
+    <li><code>/data/misc/user/0/cacerts-added</code> - certificates installed or removed in Settings</li>
+    <li><code>/data/misc/user/0</code> - notices <code>cacerts-added</code> being created (your first certificate ever) or removed</li>
+    <li><code>/data/adb/trust-user-certs/certs</code> - your custom certificates</li>
   </ul>
-  <p>Only writes, creations, deletions and renames count. Reading the certificates — which the module itself does on every sync — never triggers a sync.</p>
+  <p>Only writes, creations, deletions and renames count. Reading the certificates - which the module itself does on every sync - never triggers a sync.</p>
 
   <h3>One sync per change</h3>
   <p>Installing a certificate produces a short burst of events (create, then write). The watcher waits until the directory has been quiet for 2 seconds and then syncs once; if changes never stop, it syncs anyway after 10 seconds. The log shows each burst:</p>
   <pre>Change detected (2 event(s), first: n cacerts-added/87bc3517.0)</pre>
 
   <h3>Self-healing</h3>
-  <p>The watcher checks every 60 seconds that <code>inotifyd</code> is still running, restarts it if not and syncs once to catch anything missed. If it fails more than 5 times within 10 minutes — or <code>inotifyd</code> is not available at all — Live Sync switches to <strong>polling every 30 seconds</strong>. Both modes are shown in the Live Sync card.</p>
-  <p>When idle, Live Sync is two sleeping processes — the watcher and its <code>inotifyd</code> — and uses no CPU.</p>
+  <p>The watcher checks every 60 seconds that <code>inotifyd</code> is still running, restarts it if not and syncs once to catch anything missed. If it fails more than 5 times within 10 minutes - or <code>inotifyd</code> is not available at all - Live Sync switches to <strong>polling every 30 seconds</strong>. Both modes are shown in the Live Sync card.</p>
+  <p>When idle, Live Sync is two sleeping processes - the watcher and its <code>inotifyd</code> - and uses no CPU.</p>
 
   <h3>Turned off</h3>
   <p>With Live Sync off, certificates are still injected at every boot; changes just wait for the next reboot or for <strong>Force Inject</strong>.</p>
@@ -269,7 +270,7 @@ su -c "chmod 644 /data/adb/trust-user-certs/certs/87bc3517.0"</pre>
   <p>Mounting over the trust store happens early in boot, so a failure must never leave the phone stuck in a boot loop.</p>
   <ul>
     <li>Every boot increments a fail counter in <code>post-fs-data</code>.</li>
-    <li>The counter is reset only once Android reports <code>sys.boot_completed</code> — a boot that really finished.</li>
+    <li>The counter is reset only once Android reports <code>sys.boot_completed</code> - a boot that really finished.</li>
     <li>After <strong>3</strong> boots that did not finish, injection is disabled and the status shows <strong>BLOCKED</strong>. The phone boots with the stock trust store.</li>
   </ul>
   <p>Once you have found the cause, press <strong>Reset Fail Counter</strong> and reboot.</p>
@@ -281,8 +282,8 @@ su -c "chmod 644 /data/adb/trust-user-certs/certs/87bc3517.0"</pre>
   <p>Certificates matched by a rule are kept out of the system store, even if they are installed.</p>
   <div class="tbl"><table>
     <tr><th>file</th><th>one rule per line</th></tr>
-    <tr><td>exclude_hashes</td><td>a subject hash — the file name without <code>.0</code></td></tr>
-    <tr><td>exclude_subjects</td><td>text matched against the certificate body (user and custom certificates only)</td></tr>
+    <tr><td>exclude_hashes</td><td>a subject hash - the file name without <code>.0</code></td></tr>
+    <tr><td>exclude_subjects</td><td>text matched against the certificate body, PEM files decoded first (user and custom certificates only)</td></tr>
   </table></div>
   <p>Both live in <code>/data/adb/trust-user-certs/</code>; lines starting with <code>#</code> are comments. They ship with a rule for AdGuard's personal intermediate CA, which conflicts when it sits in the system store. An excluded certificate is labelled <em>excluded by rule</em> in the list and does not count as a failure.</p>
 </div>
@@ -295,14 +296,14 @@ su -c "chmod 644 /data/adb/trust-user-certs/certs/87bc3517.0"</pre>
     <tr><th>state</th><th>meaning</th></tr>
     <tr><td>WORKING</td><td>the overlay is active and every user and custom certificate is in it</td></tr>
     <tr><td>READY</td><td>the overlay is active; you have no certificates installed yet</td></tr>
-    <tr><td>PARTIAL</td><td>the overlay is active but at least one certificate is missing from it</td></tr>
+    <tr><td>PARTIAL</td><td>the overlay is active but at least one certificate is missing from it or has a wrong file name</td></tr>
     <tr><td>NOT WORKING</td><td>the trust store is not overlaid</td></tr>
     <tr><td>BLOCKED</td><td>the boot-loop guard stopped the injection</td></tr>
   </table></div>
   <p>The chips show the number of certificates in the live store, trusted user certificates, trusted custom certificates (when you have any) and the fail counter. An <code>+1x</code> suffix counts certificates dropped by an exclusion rule.</p>
 
   <h3>Certificates</h3>
-  <p>Every user and custom certificate with its subject, validity, serial, source and whether it actually reached the system store.</p>
+  <p>Every user and custom certificate with its subject, issuer, validity, serial, file format (PEM or DER), source and whether it actually reached the system store. A file whose name does not match its subject hash is tagged <strong>wrong file name</strong> and shows the name Android needs.</p>
 
   <h3>Live Sync</h3>
   <p>One tap starts or stops the watcher. The card shows the mode (<em>event-driven</em> or <em>polling</em>), the PID, how many syncs ran and when the last one was.</p>
@@ -322,22 +323,20 @@ su -c "chmod 644 /data/adb/trust-user-certs/certs/87bc3517.0"</pre>
 <!-- 9 -->
 <div class="sec-title" id="cli">9 · command line</div>
 <div class="box">
-  <p>The interface runs these same commands, so everything works from a root shell as well:</p>
-  <pre>S=/data/adb/modules/trust-user-certs/service.sh
-
-sh $S --status              <span class="cm"># key=value status dump</span>
-sh $S --certs               <span class="cm"># user/custom certificates, base64</span>
-sh $S --log 200             <span class="cm"># tail of the service log</span>
-sh $S --clear-log
-sh $S --force-inject
-sh $S --sync                <span class="cm"># one Live Sync pass</span>
-sh $S --watch-start
-sh $S --watch-stop
-sh $S --config LIVE_SYNC 1  <span class="cm"># also starts / stops the watcher</span>
-sh $S --config LOG_LEVEL 2
-sh $S --reset-fail</pre>
+  <p>The interface runs these same commands, so everything works from a terminal as well:</p>
+  <pre>su -c 'sh /data/adb/modules/trust-user-certs/service.sh --status'  <span class="cm"># key=value status dump</span>
+su -c 'sh /data/adb/modules/trust-user-certs/service.sh --certs'  <span class="cm"># user/custom certificates, base64</span>
+su -c 'sh /data/adb/modules/trust-user-certs/service.sh --log 200'  <span class="cm"># tail of the service log</span>
+su -c 'sh /data/adb/modules/trust-user-certs/service.sh --clear-log'
+su -c 'sh /data/adb/modules/trust-user-certs/service.sh --force-inject'
+su -c 'sh /data/adb/modules/trust-user-certs/service.sh --sync'  <span class="cm"># one Live Sync pass</span>
+su -c 'sh /data/adb/modules/trust-user-certs/service.sh --watch-start'
+su -c 'sh /data/adb/modules/trust-user-certs/service.sh --watch-stop'
+su -c 'sh /data/adb/modules/trust-user-certs/service.sh --config LIVE_SYNC 1'  <span class="cm"># also starts / stops the watcher</span>
+su -c 'sh /data/adb/modules/trust-user-certs/service.sh --config LOG_LEVEL 2'
+su -c 'sh /data/adb/modules/trust-user-certs/service.sh --reset-fail'</pre>
   <p>Quick health check:</p>
-  <pre>su -c "sh $S --status" | grep -E 'INJECT_OK|WATCH|USER_|CUSTOM_'</pre>
+  <pre>su -c 'sh /data/adb/modules/trust-user-certs/service.sh --status' | grep -E 'INJECT_OK|WATCH|USER_|CUSTOM_'</pre>
 </div>
 
 <!-- 10 -->
@@ -347,20 +346,21 @@ sh $S --reset-fail</pre>
   <p>The overlay is not mounted, usually because a bind mount failed. Look for <code>Verify FAILED</code> in the log and press <strong>Force Inject</strong>.</p>
 
   <h3>PARTIAL</h3>
-  <p>A certificate did not reach the store. The certificate list marks which one. A custom certificate with a wrong file name is the usual cause (see section 3).</p>
+  <p>A certificate did not reach the store. The certificate list marks which one.</p>
+  <p>A certificate with a wrong file name reaches the store, but Android ignores it, so it does not count as trusted. The status label then says <code>1 cert has a wrong file name</code>, its card is tagged <strong>wrong file name</strong> and the log names the right one (see section 3).</p>
 
   <h3>BLOCKED</h3>
   <p>Three boots in a row did not finish. Find the cause in the log, then press <strong>Reset Fail Counter</strong>, or:</p>
-  <pre>su -c "echo 0 &gt; /data/adb/trust-user-certs/boot_fail_count"</pre>
+  <pre>su -c 'echo 0 &gt; /data/adb/trust-user-certs/boot_fail_count'</pre>
 
   <h3>Live Sync shows DEAD</h3>
-  <p>Press <strong>Force Sync</strong> — it restarts the watcher — or toggle Live Sync off and on. A watcher started from here moves itself out of the manager app's cgroups, so closing the manager does not kill it.</p>
+  <p>Press <strong>Force Sync</strong> - it restarts the watcher - or toggle Live Sync off and on. A watcher started from here moves itself out of the manager app's cgroups, so closing the manager does not kill it.</p>
 
   <h3>Live Sync says "polling every 30s"</h3>
   <p><code>inotifyd</code> is missing from your root manager's busybox or kept exiting. Syncing still works, only up to 30 seconds later. The log says which of the two happened.</p>
 
   <h3>Android will not install my certificate</h3>
-  <p>A <code>.p12</code> / <code>.pfx</code> file is not a CA certificate — extract it first (section 2). Versions up to v3.1 created <code>cacerts-added</code> as root, which could stop Android from adding the first certificate; since v4 the module repairs that at install and at boot.</p>
+  <p>A <code>.p12</code> / <code>.pfx</code> file is not a CA certificate - extract it first (section 2). Versions up to v3.1 created <code>cacerts-added</code> as root, which could stop Android from adding the first certificate; since v4 the module repairs that at install and at boot.</p>
 
   <h3>One app still rejects the certificate</h3>
   <p>That app uses <strong>certificate pinning</strong>: it trusts only specific certificates, no matter what is in the system store. No trust-store module can change that; a pinning bypass such as <a href="https://github.com/hang666/JustTrustMePro/releases" target="_blank" style="color:var(--teal)">JustTrustMePro</a> (LSPosed) can.</p>

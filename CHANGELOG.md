@@ -1,5 +1,22 @@
 # Changelog
 
+## v5.2
+
+**WebUI**
+- Certificates in PEM format (text, e.g. an export from HttpCanary) are now shown with their name, issuer, dates and serial. Before, their card only said "could not be parsed as DER", although Android trusted them.
+- Every card shows the file format (PEM or DER).
+- A certificate whose file name Android cannot use is tagged "wrong file name" and shows the name it needs (e.g. `87bc3517.0`). Before, it showed as trusted although Android ignores it. You no longer need openssl to find the right name.
+- Such a certificate no longer counts as trusted: the status shows PARTIAL with "1 cert has a wrong file name". The same goes for `--status` on the command line.
+- With more than 40 user certificates the custom ones are still listed, and the list says how many were left out.
+
+**Module**
+- The log warning for a wrongly named custom certificate gives the right file name, and also catches a name that only looks right (e.g. `12345678.0` for a certificate that needs `87bc3517.0`).
+- Exclusion rules by name (`exclude_subjects`) now also work for PEM certificates.
+- Exclusion rule files saved on Windows (CRLF line endings) work.
+- The installer shows the real version instead of "v4".
+
+---
+
 ## v5.1
 
 **WebUI**
@@ -24,12 +41,12 @@ Live Sync rewritten on busybox `inotifyd`, the bundled binary is gone, and the
 module no longer breaks installing the first user certificate. Custom
 certificates are watched and verified. New built-in help page.
 
-### Fixed — Live Sync did not work without Termux
+### Fixed - Live Sync did not work without Termux
 
 - **The bundled `bin/inotifywait` could not run on most devices.** It was built
   in Termux and dynamically linked against `libinotifytools.so` with a Termux
   `RUNPATH`, so it only started where Termux with `inotify-tools` was installed
-  — and even there only after the first unlock, because `/data/data` is
+  - and even there only after the first unlock, because `/data/data` is
   credential-encrypted. Everywhere else the linker failed on every call:
   `CANNOT LINK EXECUTABLE … libinotifytools.so not found`.
 - **The failure was accepted and retried forever.** `detect_inotify()` only
@@ -37,7 +54,7 @@ certificates are watched and verified. New built-in help page.
   retried every 5 s from boot, logged at debug level only, never fell back to
   polling, while the UI showed "event-driven". Live Sync silently did nothing.
 
-### Changed — Live Sync
+### Changed - Live Sync
 
 - The binary is removed. Live Sync now uses the root manager's own busybox
   `inotifyd` (Magisk, KernelSU, SukiSU and APatch all ship it) writing into a
@@ -46,17 +63,17 @@ certificates are watched and verified. New built-in help page.
 - Watches `cacerts-added`, its parent `/data/misc/user/0` (so the first
   certificate ever is seen even when the directory does not exist yet) and the
   custom certificate directory. Only creations, completed writes, deletions
-  and renames count — reading certificates never triggers a sync.
+  and renames count - reading certificates never triggers a sync.
 - **One sync per change.** Events are debounced (2 s of quiet, at most 10 s),
   measured on HyperOS 3: install = create + write, remove = write + delete.
 - **Self-healing.** A health check every 60 s restarts a dead `inotifyd` and
   resyncs; more than 5 failures in 10 min, or no `inotifyd` at all, switches to
   polling every 30 s (`stat` fingerprint instead of `ls -la`). Detection tests
-  the real thing — the watcher is started and must stay alive.
+  the real thing - the watcher is started and must stay alive.
 - **Process identity.** A PID from a file counts only if the process is alive,
   not a zombie, and its command line contains the module's path. Stale runtime
-  files are cleared at boot. Previously any process named `service.sh` — e.g.
-  another module's — with a recycled PID made the watcher refuse to start.
+  files are cleared at boot. Previously any process named `service.sh` - e.g.
+  another module's - with a recycled PID made the watcher refuse to start.
 - Clean shutdown in ~0.2 s (traps before the PID file, 0.2 s polling), one log
   line per stop; `--watch-stop` and `uninstall.sh` only signal verified PIDs.
 - A watcher started from the UI always runs under busybox ash, like at boot.
@@ -65,7 +82,7 @@ certificates are watched and verified. New built-in help page.
 - `--status` adds `WATCH_MODE=events|poll`, `INOTIFYD_PID`, `INOTIFYD`,
   `WATCH_RESTARTS`, `CUSTOM_TRUSTED`, `CUSTOM_EXCLUDED`.
 
-### Fixed — the first user certificate could not be installed
+### Fixed - the first user certificate could not be installed
 
 - `post-fs-data.sh`, the installer and the watcher created
   `/data/misc/user/0/cacerts-added` as `root:root`. On a device without user
@@ -75,12 +92,12 @@ certificates are watched and verified. New built-in help page.
   a root-owned one with files is handed to `system:system 0755`. A directory
   owned by system is never touched.
 
-### Fixed — custom certificates were never verified
+### Fixed - custom certificates were never verified
 
 - `verify_inject` only checked user certificates, so a custom certificate that
   never reached the store still reported `Verify OK`. Custom certificates are
   now checked the same way:
-  `Verify OK — 151 certs live, 1/1 user certs trusted, 1/1 custom certs trusted`.
+  `Verify OK - 151 certs live, 1/1 user certs trusted, 1/1 custom certs trusted`.
 - The WebUI shows `PARTIAL` when a custom certificate is missing and a
   `custom x/y` chip when you have any.
 
@@ -90,7 +107,7 @@ certificates are watched and verified. New built-in help page.
   certificates and the three Settings options, custom certificates, injection,
   Live Sync, boot-loop guard, exclusion rules, CLI, troubleshooting, file
   layout. Includes the Xiaomi.eu / HyperOS 3 menu path.
-- Live Sync on the custom certificate directory — no more Force Inject after
+- Live Sync on the custom certificate directory - no more Force Inject after
   dropping a file there.
 
 ### Unchanged
@@ -109,7 +126,7 @@ fallbacks, process identity, boot flow, ownership repair and verification.
 
 ## v3.1
 
-### Fixed — the Live Sync watcher could die with the manager app
+### Fixed - the Live Sync watcher could die with the manager app
 
 A watcher started from the WebUI (the Live Sync toggle) was a child of the
 manager app's root shell, so it inherited the app's cgroup. When Android froze
@@ -130,12 +147,12 @@ people who used the toggle.
 
 ## v3
 
-### Fixed — critical
+### Fixed - critical
 
 - **`local` outside a function killed `post-fs-data.sh` on Android 7–13.**
   `local selinux_ctx` sat in the body of an `if` block. In dash/busybox-ash that
   aborts the script, so the tmpfs was never mounted and no certificate was ever
-  injected — while the boot fail counter had already been incremented, so the
+  injected - while the boot fail counter had already been incremented, so the
   module disabled itself after three boots. Never noticed on Android 14+, which
   takes the other branch.
 - **`LIVE_SYNC=0` disabled the whole module on Android 14+.** The early
@@ -156,7 +173,7 @@ people who used the toggle.
   the calls silently failed. The bridge is now probed at startup and both shapes
   are supported, with a visible error screen if neither works.
 
-### Fixed — security
+### Fixed - security
 
 - **XSS in the certificate list.** `cert.cn` / `cert.o` were injected into
   `innerHTML` unescaped. Since the WebUI holds root through `ksu.exec`, a
@@ -167,10 +184,10 @@ people who used the toggle.
   *system-trusted* CA. It is now `/data/adb/trust-user-certs/certs`, mode 0700.
   Existing certificates are migrated automatically on install and on boot.
 
-### Fixed — correctness
+### Fixed - correctness
 
 - Bootloop counter is reset only after `sys.boot_completed` plus a settle delay,
-  instead of immediately after mounting — v2's guard could never trigger.
+  instead of immediately after mounting - v2's guard could never trigger.
 - Certificate **removal** now propagates. The stage is rebuilt from a pristine
   snapshot of the OS trust store, so deleting a user certificate removes it from
   the system store on the next sync.
@@ -190,13 +207,13 @@ people who used the toggle.
 
 ### Removed (dead code)
 
-- `MODULE_APEX_CONSCRYPT_DIR`, `MODULE_SYSTEM_CERT_DIR` — defined, never used.
-- `log_warn()` — defined, never called (it is used throughout now).
-- `LAST_LIVESYNC_HEARTBEAT` — written every 45 s, never read by anything.
-- `$MODPATH/apex/...` staging directory — Magisk never mounts `/apex`.
-- `$MODPATH/system/etc/security/cacerts` — empty, unused.
+- `MODULE_APEX_CONSCRYPT_DIR`, `MODULE_SYSTEM_CERT_DIR` - defined, never used.
+- `log_warn()` - defined, never called (it is used throughout now).
+- `LAST_LIVESYNC_HEARTBEAT` - written every 45 s, never read by anything.
+- `$MODPATH/apex/...` staging directory - Magisk never mounts `/apex`.
+- `$MODPATH/system/etc/security/cacerts` - empty, unused.
 
-### Added — no unchecked external dependencies
+### Added - no unchecked external dependencies
 
 Nothing outside the shell is assumed to exist any more. `sh/common.sh` resolves
 every risky tool once at load time, in this order: the command on `PATH`, then
@@ -211,8 +228,8 @@ the same applet from busybox (Magisk, KernelSU/SukiSU, APatch, busybox-ndk or
 | `setsid` | `nohup`; otherwise a plain background job with every fd redirected (`spawn_detached()`) |
 | `stat -c %s` | busybox; otherwise `wc -c` (`file_size()`) |
 | `base64` | busybox; the WebUI asks `service.sh --b64cmd` at startup and pipes through whatever came back |
-| `md5sum` | dependency removed — the poll watcher compares the directory listing directly |
-| `find` | dependency removed — the versioned APEX directory is located with a glob |
+| `md5sum` | dependency removed - the poll watcher compares the directory listing directly |
+| `find` | dependency removed - the versioned APEX directory is located with a glob |
 
 The resolved toolchain is logged once per boot (`log_tools`) and reported by
 `service.sh --status` as `BUSYBOX`, `TOOL_NSENTER`, `TOOL_PGREP`, `TOOL_SETSID`,
@@ -241,7 +258,7 @@ ReBuild
 
 ---
 
-## v1.0.0 — 2026-06-27
+## v1.0.0 - 2026-06-27
 
 Initial release.
 
@@ -250,7 +267,7 @@ Initial release.
 - Android 14+: deferred bind mount injection into APEX Conscrypt at `service.sh` stage, after zygote is ready
 - Per-process namespace injection into init, zygote, zygote64
 - Bootloop protection via fail counter (stops after 3 failed boot attempts)
-- AdGuard compatibility — conflicting intermediate certificates are automatically removed
+- AdGuard compatibility - conflicting intermediate certificates are automatically removed
 - Custom certificate support via `/data/local/tmp/cert/`
 
 ### Live Sync
@@ -262,8 +279,8 @@ Initial release.
 
 ### WebUI
 - Module status with cert counts and fail counter
-- User certificates section — lists installed CA certs with CN, organization, valid from, valid until, serial number; parsed from DER format in pure JavaScript (no external binaries)
-- Live Sync status using `/proc/<pid>` liveness check — immune to Android Doze/suspend false-dead readings
+- User certificates section - lists installed CA certs with CN, organization, valid from, valid until, serial number; parsed from DER format in pure JavaScript (no external binaries)
+- Live Sync status using `/proc/<pid>` liveness check - immune to Android Doze/suspend false-dead readings
 - Log level control (off / normal / verbose)
 - Actions: Force Inject, Force Sync, Reset Fail Counter
 - Service log with INFO / WARN / ERR / DBG filters

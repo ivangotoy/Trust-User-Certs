@@ -1,7 +1,7 @@
 #!/system/bin/sh
 # shellcheck shell=ash disable=SC3043
 #
-# inject.sh — certificate staging and trust-store injection.
+# inject.sh - certificate staging and trust-store injection.
 # Requires sh/common.sh to be sourced first.
 
 # ── Pristine snapshot of the OS trust store ───────────────────────────────────
@@ -12,7 +12,7 @@ refresh_base_certs() {
   _rb_live=$(trust_store_dir)
 
   if is_mounted "$_rb_live"; then
-    log_debug "Trust store already overlaid — keeping cached base snapshot"
+    log_debug "Trust store already overlaid - keeping cached base snapshot"
     unset _rb_live
     return 0
   fi
@@ -23,21 +23,33 @@ refresh_base_certs() {
     cp -f "$_rb_live"/* "$BASE_CERT_DIR"/ 2>/dev/null
     log_debug "Base snapshot refreshed: $(count_files "$BASE_CERT_DIR") certs from $_rb_live"
   else
-    log_warn "Live trust store $_rb_live is empty — snapshot not refreshed"
+    log_warn "Live trust store $_rb_live is empty - snapshot not refreshed"
   fi
   unset _rb_live
   return 0
 }
 
+# cert_has <pattern> <file> - the pattern (grep basic regex) is searched in
+# the certificate itself. A PEM file is base64 text, so a subject name never
+# appears in it literally: its body is decoded and searched as DER too.
+cert_has() {
+  grep -q -- "$1" "$2" 2>/dev/null && return 0
+  [ -n "$CMD_BASE64" ] || return 1
+  grep -q -- '-----BEGIN' "$2" 2>/dev/null || return 1
+  sed -n '/-----BEGIN/,/-----END/p' "$2" 2>/dev/null | grep -v -- '-----' | tr -d '\r' |
+    $CMD_BASE64 -d 2>/dev/null | grep -q -- "$1"
+}
+
 # ── Exclusion rules (AdGuard & friends) ───────────────────────────────────────
 # Hash rules match <hash>.* in the stage. Subject rules are matched only against
-# certificates that came from the user/custom stores — scanning all ~150 system
+# certificates that came from the user/custom stores - scanning all ~150 system
 # certs on every sync was pure overhead.
 remove_conflicting_certs() {
   _rc_dir="$1"
 
   if [ -f "$EXCLUDE_HASH_FILE" ]; then
     while IFS= read -r _rc_hash; do
+      _rc_hash="${_rc_hash%"$CR"}" # a rules file saved on Windows
       case "$_rc_hash" in
         '' | '#'*) continue ;;
       esac
@@ -64,10 +76,11 @@ remove_conflicting_certs() {
       _rc_base="${_rc_f##*/}"
       [ -f "$_rc_dir/$_rc_base" ] || continue
       while IFS= read -r _rc_pat; do
+        _rc_pat="${_rc_pat%"$CR"}"
         case "$_rc_pat" in
           '' | '#'*) continue ;;
         esac
-        if grep -q "$_rc_pat" "$_rc_f" 2>/dev/null; then
+        if cert_has "$_rc_pat" "$_rc_f"; then
           rm -f "$_rc_dir/$_rc_base" 2>/dev/null
           log_debug "Excluded by subject '$_rc_pat': $_rc_base"
           break
@@ -91,17 +104,19 @@ copy_custom_certs() {
   for _cc_f in "$CUSTOM_CERT_DIR"/*; do
     [ -f "$_cc_f" ] || continue
     _cc_base="${_cc_f##*/}"
-    case "$_cc_base" in
-      *.0) ;;
-      *)
-        log_warn "Custom cert '$_cc_base' is not named <subject_hash_old>.0 — Android will ignore it"
-        ;;
-    esac
+    if ! cert_name_ok "$_cc_f"; then
+      _cc_hash=$(cert_name_hash "$_cc_f")
+      if [ -n "$_cc_hash" ]; then
+        log_warn "Custom cert '$_cc_base' has the wrong file name - Android ignores it, rename it to $_cc_hash.0"
+      else
+        log_warn "Custom cert '$_cc_base' is not named <subject_hash_old>.0 - Android ignores it"
+      fi
+    fi
     cp -f "$_cc_f" "$_cc_dst"/ 2>/dev/null
   done
 
   log_debug "Custom certs staged from $CUSTOM_CERT_DIR"
-  unset _cc_dst _cc_f _cc_base
+  unset _cc_dst _cc_f _cc_base _cc_hash
   return 0
 }
 
@@ -115,7 +130,7 @@ stage_certs() {
   cp -f "$BASE_CERT_DIR"/* "$CERT_STAGE"/ 2>/dev/null
 
   if ! dir_has_files "$CERT_STAGE"; then
-    log_warn "Base snapshot empty — falling back to the live store"
+    log_warn "Base snapshot empty - falling back to the live store"
     cp -f "$(trust_store_dir)"/* "$CERT_STAGE"/ 2>/dev/null
   fi
 
@@ -148,7 +163,7 @@ verify_inject() {
     for _vi_f in "$USER_CERT_DIR"/*; do
       [ -f "$_vi_f" ] || continue
       # Certificates dropped by an exclusion rule are absent from the stage on
-      # purpose — they must not count as a verification failure.
+      # purpose - they must not count as a verification failure.
       [ -f "$CERT_STAGE/${_vi_f##*/}" ] || continue
       _vi_users=$((_vi_users + 1))
       [ -f "$_vi_store/${_vi_f##*/}" ] && _vi_found=$((_vi_found + 1))
@@ -172,13 +187,13 @@ verify_inject() {
 
   if [ "$_vi_want" -gt 0 ] && [ "$_vi_have" -ge "$_vi_want" ] &&
     [ "$_vi_found" -eq "$_vi_users" ] && [ "$_vi_cfound" -eq "$_vi_cust" ]; then
-    log_info "Verify OK — $_vi_have certs live, $_vi_found/$_vi_users user certs trusted$_vi_ctext"
+    log_info "Verify OK - $_vi_have certs live, $_vi_found/$_vi_users user certs trusted$_vi_ctext"
     write_stats "INJECT_OK=1" "INJECT_COUNT=$_vi_have" "LAST_INJECT=$(date +%s)"
     unset _vi_store _vi_want _vi_have _vi_users _vi_found _vi_f _vi_cust _vi_cfound _vi_ctext
     return 0
   fi
 
-  log_error "Verify FAILED — staged $_vi_want, live $_vi_have, user certs trusted $_vi_found/$_vi_users$_vi_ctext"
+  log_error "Verify FAILED - staged $_vi_want, live $_vi_have, user certs trusted $_vi_found/$_vi_users$_vi_ctext"
   write_stats "INJECT_OK=0" "INJECT_COUNT=$_vi_have" "LAST_INJECT=$(date +%s)"
   unset _vi_store _vi_want _vi_have _vi_users _vi_found _vi_f _vi_cust _vi_cfound _vi_ctext
   return 1
@@ -198,7 +213,7 @@ inject_low() {
     fi
     log_info "tmpfs mounted on $SYSTEM_CERT_DIR"
   else
-    log_debug "tmpfs already present on $SYSTEM_CERT_DIR — refreshing contents"
+    log_debug "tmpfs already present on $SYSTEM_CERT_DIR - refreshing contents"
   fi
 
   cp -f "$CERT_STAGE"/* "$SYSTEM_CERT_DIR"/ 2>/dev/null
@@ -302,7 +317,7 @@ inject_high() {
     log_debug "namespace binds: $_ih_ns_ok ok, $_ih_ns_fail failed"
     unset _ih_ns_ok _ih_ns_fail
   else
-    log_warn "Skipping namespace binds — nsenter is unavailable on this device"
+    log_warn "Skipping namespace binds - nsenter is unavailable on this device"
   fi
 
   # The tmpfs stays alive through the bind mounts; only its staging path goes.
@@ -334,7 +349,7 @@ sync_store() {
   _ss_store=$(trust_store_dir)
 
   if ! is_mounted "$_ss_store"; then
-    log_warn "Trust store is not overlaid — running a full inject instead"
+    log_warn "Trust store is not overlaid - running a full inject instead"
     inject_full
     return $?
   fi
@@ -359,10 +374,10 @@ sync_store() {
   verify_inject
 }
 
-# Live sync — sync_store plus counters, serialised against the watcher.
+# Live sync - sync_store plus counters, serialised against the watcher.
 do_live_sync() {
   if ! lock_acquire "$SYNC_LOCK" 20; then
-    log_warn "Live sync skipped — another sync is still running"
+    log_warn "Live sync skipped - another sync is still running"
     return 1
   fi
 

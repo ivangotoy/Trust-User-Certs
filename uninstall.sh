@@ -1,9 +1,9 @@
 #!/system/bin/sh
-# uninstall.sh — runs when the module is removed via Magisk/KSU/APatch.
+# uninstall.sh - runs when the module is removed via Magisk/KSU/APatch.
 
 DATA_DIR="/data/adb/trust-user-certs"
 
-# Stop the Live Sync watcher and its inotifyd — but only processes that really
+# Stop the Live Sync watcher and its inotifyd - but only processes that really
 # are ours: a PID file can point at a recycled PID. Self-contained on purpose
 # (the module files may already be gone when this runs).
 tuc_pid() {
