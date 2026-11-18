@@ -605,20 +605,22 @@ wait_for_zygote() { # wait_for_zygote <timeout>
 
 # ── Permissions ───────────────────────────────────────────────────────────────
 # One entry point, branching internally - calling the wrong variant for the
-# running Android version is no longer possible.
+# running Android version is no longer possible. Only the files get 0644: a
+# recursive chmod would leave the live store dir without search permission
+# for every app until the chmod 755 that follows.
 fix_permissions() {
   _fp_dir="$1"
   [ -d "$_fp_dir" ] || return 1
   if [ "$SDK" -ge 34 ]; then
     chown -R system:system "$_fp_dir" 2>/dev/null
     chown root:shell "$_fp_dir" 2>/dev/null
-    chmod -R 644 "$_fp_dir" 2>/dev/null
+    chmod 644 "$_fp_dir"/* 2>/dev/null
     chmod 755 "$_fp_dir" 2>/dev/null
     touch -t 197001010800 "$_fp_dir"/* 2>/dev/null
     touch -t 197001010800 "$_fp_dir" 2>/dev/null
   else
     chown -R root:root "$_fp_dir" 2>/dev/null
-    chmod -R 644 "$_fp_dir" 2>/dev/null
+    chmod 644 "$_fp_dir"/* 2>/dev/null
     chmod 755 "$_fp_dir" 2>/dev/null
     touch -t 200901010800 "$_fp_dir"/* 2>/dev/null
     touch -t 200901010800 "$_fp_dir" 2>/dev/null
