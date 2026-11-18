@@ -421,6 +421,26 @@ log_rotate() {
 }
 
 # ── Locking (mkdir is atomic on every filesystem Android ships) ───────────────
+# lock_owner_alive <pid> - a live process of this module (its command line
+# names the module dir), not just any process that got a recycled pid.
+lock_owner_alive() { pid_is "$1" "$MODULE_ID"; }
+
+# _lock_drop <lockdir> - moves a stale lock aside and removes it. mv is one
+# rename: of several callers that found the same stale lock only one wins,
+# so none of them can delete a lock another has just taken. The unique name
+# ends in .lock, so the boot cleanup in post-fs-data.sh catches leftovers.
+_lock_drop() {
+  _ld_tmp="${1%.lock}.stale$$.lock"
+  rm -rf "$_ld_tmp" 2>/dev/null
+  if mv "$1" "$_ld_tmp" 2>/dev/null; then
+    rm -rf "$_ld_tmp" 2>/dev/null
+    unset _ld_tmp
+    return 0
+  fi
+  unset _ld_tmp
+  return 1
+}
+
 # lock_acquire <lockdir> [timeout_seconds]
 lock_acquire() {
   _lk_path="$1"
@@ -432,23 +452,32 @@ lock_acquire() {
     if [ "$_lk_i" -gt "$_lk_timeout" ]; then
       # A holder killed between its mkdir and its pid write leaves a lock
       # that nothing else ever clears. Still without a pid after a whole
-      # timeout, it is taken over; rmdir never removes one that has a pid.
-      if [ ! -f "$_lk_path/pid" ] && rmdir "$_lk_path" 2>/dev/null &&
-        mkdir "$_lk_path" 2>/dev/null; then
-        break
+      # timeout, it is moved aside (only one waiter wins the mv) and removed
+      # with rmdir, which fails if a pid appeared after all; then it is
+      # handed back.
+      if [ ! -f "$_lk_path/pid" ]; then
+        _lk_tmp="${_lk_path%.lock}.stale$$.lock"
+        rm -rf "$_lk_tmp" 2>/dev/null
+        if mv "$_lk_path" "$_lk_tmp" 2>/dev/null; then
+          if rmdir "$_lk_tmp" 2>/dev/null; then
+            mkdir "$_lk_path" 2>/dev/null && break
+          elif [ ! -e "$_lk_path" ]; then
+            mv "$_lk_tmp" "$_lk_path" 2>/dev/null
+          fi
+        fi
       fi
-      unset _lk_path _lk_timeout _lk_i _lk_owner
+      unset _lk_path _lk_timeout _lk_i _lk_owner _lk_tmp
       return 1
     fi
     _lk_owner=$(cat "$_lk_path/pid" 2>/dev/null)
-    if [ -n "$_lk_owner" ] && [ ! -d "/proc/$_lk_owner" ]; then
-      rm -rf "$_lk_path" 2>/dev/null
+    if [ -n "$_lk_owner" ] && ! lock_owner_alive "$_lk_owner"; then
+      _lock_drop "$_lk_path"
       continue
     fi
     sleep 1
   done
   echo "$$" >"$_lk_path/pid" 2>/dev/null
-  unset _lk_path _lk_timeout _lk_i _lk_owner
+  unset _lk_path _lk_timeout _lk_i _lk_owner _lk_tmp
   return 0
 }
 
@@ -459,8 +488,8 @@ lock_release() { rm -rf "$1" 2>/dev/null; return 0; }
 lock_is_held() {
   [ -d "$1" ] || return 1
   _lh_owner=$(cat "$1/pid" 2>/dev/null)
-  if [ -n "$_lh_owner" ] && [ ! -d "/proc/$_lh_owner" ]; then
-    rm -rf "$1" 2>/dev/null
+  if [ -n "$_lh_owner" ] && ! lock_owner_alive "$_lh_owner"; then
+    _lock_drop "$1"
     unset _lh_owner
     return 1
   fi
