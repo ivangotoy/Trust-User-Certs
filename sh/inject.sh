@@ -4,6 +4,35 @@
 # inject.sh - certificate staging and trust-store injection.
 # Requires sh/common.sh to be sourced first.
 
+# sizes_match <dst> <src>... - true if every regular file of the sources is in
+# <dst> with the size it has in the last source holding that name (a later
+# source overrides an earlier one, as the copies do). Prints the first name
+# that is missing or has another size. A full /data or tmpfs can leave a file
+# out, empty or cut part way. One wc per directory and one awk in all.
+sizes_match() {
+  _sm_dst="$1"
+  shift
+  {
+    for _sm_d in "$@"; do wc -c "$_sm_d"/* 2>/dev/null; done
+    echo '--'
+    wc -c "$_sm_dst"/* 2>/dev/null
+  } | ${CMD_AWK:-awk} '
+    $0 == "--" { dst = 1; next }
+    {
+      s = $1; p = $0
+      sub(/^[ \t]*[0-9]+[ \t]+/, "", p)
+      if (index(p, "/") == 0) next
+      n = p; sub(/.*\//, "", n)
+      if (dst) D[n] = s; else W[n] = s
+    }
+    END {
+      for (n in W) if (!(n in D) || D[n] != W[n]) { print n; exit 1 }
+    }'
+  _sm_rc=$?
+  unset _sm_dst _sm_d
+  return "$_sm_rc"
+}
+
 # ── Pristine snapshot of the OS trust store ───────────────────────────────────
 # Taken only while our own overlay is NOT active, so re-staging never feeds our
 # merged set back into itself. This is what makes cert *removal* propagate:
@@ -21,19 +50,14 @@ refresh_base_certs() {
   if dir_has_files "$_rb_live"; then
     rm -f "$BASE_CERT_DIR"/* 2>/dev/null
     cp -f "$_rb_live"/* "$BASE_CERT_DIR"/ 2>/dev/null
-    # Every file must have arrived, and not empty (a full /data can leave
-    # files without their data behind).
-    for _rb_f in "$_rb_live"/*; do
-      [ -f "$_rb_f" ] || continue
-      _rb_b="$BASE_CERT_DIR/${_rb_f##*/}"
-      if [ ! -f "$_rb_b" ] || { [ -s "$_rb_f" ] && [ ! -s "$_rb_b" ]; }; then
-        log_error "Base snapshot incomplete: ${_rb_f##*/} not copied from $_rb_live (is /data full?)"
-        unset _rb_live _rb_f _rb_b
-        return 1
-      fi
-    done
+    # Every file must have arrived whole.
+    if ! _rb_bad=$(sizes_match "$BASE_CERT_DIR" "$_rb_live"); then
+      log_error "Base snapshot incomplete: $_rb_bad not copied whole from $_rb_live (is /data full?)"
+      unset _rb_live _rb_bad
+      return 1
+    fi
     log_debug "Base snapshot refreshed: $(count_files "$BASE_CERT_DIR") certs from $_rb_live"
-    unset _rb_f _rb_b
+    unset _rb_bad
   else
     log_warn "Live trust store $_rb_live is empty - snapshot not refreshed"
   fi
@@ -177,18 +201,13 @@ stage_certs() {
     unset _sc_src
     return 1
   fi
-  for _sc_f in "$_sc_src"/* "$USER_CERT_DIR"/* "$CUSTOM_CERT_DIR"/*; do
-    [ -f "$_sc_f" ] || continue
-    if [ -f "$CERT_STAGE/${_sc_f##*/}" ]; then
-      [ -s "$_sc_f" ] || continue
-      [ -s "$CERT_STAGE/${_sc_f##*/}" ] && continue
-    fi
-    log_error "Staging failed: ${_sc_f##*/} from ${_sc_f%/*} was not copied (is /data full?)"
+  if ! _sc_bad=$(sizes_match "$CERT_STAGE" "$_sc_src" "$USER_CERT_DIR" "$CUSTOM_CERT_DIR"); then
+    log_error "Staging failed: $_sc_bad was not copied whole (is /data full?)"
     rm -rf "$CERT_STAGE" 2>/dev/null
-    unset _sc_src _sc_f
+    unset _sc_src _sc_bad
     return 1
-  done
-  unset _sc_src _sc_f
+  fi
+  unset _sc_src _sc_bad
 
   remove_conflicting_certs "$CERT_STAGE"
 

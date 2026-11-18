@@ -93,7 +93,8 @@ EOF
   # cp: forwards to the real cp. TUC_CP_FAIL_DEST=<substring> makes a copy whose
   # destination (last argument) contains it fail - after copying only the
   # first source when TUC_CP_FAIL_MODE=partial (a full disk), or after creating
-  # every destination file empty when TUC_CP_FAIL_MODE=empty (no data blocks).
+  # every destination file empty when TUC_CP_FAIL_MODE=empty (no data blocks),
+  # or cut to half its size when TUC_CP_FAIL_MODE=truncate.
   # TUC_CP_FAIL_SRC=<substring> fails a copy from a source that contains it.
   cat >"$TUC_STUBS/cp" <<'EOF'
 #!/bin/sh
@@ -112,6 +113,13 @@ if [ -n "${TUC_CP_FAIL_DEST:-}" ]; then
           case "$a" in -*) continue ;; esac
           [ "$a" = "$last" ] && break
           [ -f "$a" ] && : >"$last/${a##*/}"
+        done
+      fi
+      if [ "${TUC_CP_FAIL_MODE:-}" = truncate ]; then
+        for a in "$@"; do
+          case "$a" in -*) continue ;; esac
+          [ "$a" = "$last" ] && break
+          [ -f "$a" ] && head -c $(($(wc -c <"$a") / 2)) "$a" >"$last/${a##*/}"
         done
       fi
       if [ "${TUC_CP_FAIL_MODE:-}" = partial ]; then
