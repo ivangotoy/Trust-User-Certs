@@ -207,8 +207,8 @@ The directory is root-only by design. Versions before v3 used `/data/local/tmp/c
 
 Certificates matched by a rule are kept out of the system store.
 
-- `exclude_hashes` - one subject hash per line (the part before `.0`)
-- `exclude_subjects` - one substring per line, matched against the certificate body (a PEM file is decoded first); only user and custom certificates are scanned
+- `exclude_hashes` - one subject hash per line (the part before `.0`: eight lowercase hex digits; other lines are ignored)
+- `exclude_subjects` - one pattern per line (a grep basic regular expression, so plain text matches as a substring; escape `.`, `*`, `[` and `\` to match them literally), matched against the certificate body (a PEM file is decoded first); only user and custom certificates are scanned
 
 Lines starting with `#` are ignored. Both files ship with a rule for AdGuard's personal intermediate CA, which conflicts when present in the system store. An excluded certificate is labelled *excluded by rule* and does not count as a failure.
 
