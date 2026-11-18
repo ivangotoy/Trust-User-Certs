@@ -199,7 +199,7 @@ su -c 'chmod 644 /data/adb/trust-user-certs/certs/87bc3517.0'
 
 > **Uninstalling the module deletes this directory.** Keep a copy of your custom certificates elsewhere. Updates keep them.
 
-The directory is root-only by design. Versions before v3 used `/data/local/tmp/cert`, which any adb shell could write to - meaning anyone with adb access could install a *system-trusted* CA. Existing certificates are migrated automatically on install and on boot, and the old directory is removed.
+The directory is root-only by design. Versions before v3 used `/data/local/tmp/cert`, which any adb shell could write to - meaning anyone with adb access could install a *system-trusted* CA. Existing certificates are migrated automatically when the module is installed or updated, and the old directory is removed. At boot the old directory is never imported, only reported in the log.
 
 ---
 
