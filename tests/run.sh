@@ -26,7 +26,7 @@ skip() { SKIP=$((SKIP + 1)); printf 'skip %s\n' "$1"; }
 
 cd "$TUC_REPO" || exit 1
 
-# ── Syntax ────────────────────────────────────────────────────────────────────
+# -- Syntax --
 for f in customize.sh post-fs-data.sh service.sh uninstall.sh sh/*.sh \
   META-INF/com/google/android/update-binary tests/*.sh tests/cases/*.sh; do
   [ -f "$f" ] || continue
@@ -57,7 +57,7 @@ else
   fi
 fi
 
-# ── Behaviour tests ───────────────────────────────────────────────────────────
+# -- Behaviour tests --
 . "$TUC_REPO/tests/lib.sh"
 make_stubs
 PATH="$TUC_STUBS:$PATH"

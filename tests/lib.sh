@@ -228,7 +228,7 @@ user_cert() { # user_cert <fixture> <name>
 
 stat_of() { sed -n "s/^$1=//p" "$TUC_DATA/stats" 2>/dev/null | tail -n 1; }
 
-# ── assertions ────────────────────────────────────────────────────────────────
+# -- assertions --
 fail() {
   printf '    FAIL: %s\n' "$*"
   TUC_TEST_FAILED=1
