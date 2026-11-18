@@ -605,7 +605,7 @@ cmd_log() {
 }
 
 cmd_clear_log() {
-  : >"$LOG_FILE" 2>/dev/null
+  printf '' >"$LOG_FILE" 2>/dev/null
   log_info "Log cleared from the UI"
   echo "rc=0"
 }

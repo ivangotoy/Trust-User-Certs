@@ -485,7 +485,7 @@ write_cfg() {
     grep -v "^$1=" "$CONFIG_FILE" 2>/dev/null >"$_wc_tmp"
     [ $? -le 1 ] || _wc_ok=0
   else
-    : >"$_wc_tmp" || _wc_ok=0
+    printf '' >"$_wc_tmp" || _wc_ok=0
   fi
   [ "$_wc_ok" = 1 ] && { printf '%s=%s\n' "$1" "$2" >>"$_wc_tmp" || _wc_ok=0; }
   [ "$_wc_ok" = 1 ] && { mv -f "$_wc_tmp" "$CONFIG_FILE" 2>/dev/null || _wc_ok=0; }
@@ -531,7 +531,7 @@ write_stats() {
   if [ -f "$STATS_FILE" ]; then
     cp -f "$STATS_FILE" "$_ws_tmp" 2>/dev/null || _ws_ok=0
   else
-    : >"$_ws_tmp" || _ws_ok=0
+    printf '' >"$_ws_tmp" || _ws_ok=0
   fi
   for _ws_pair in "$@"; do
     [ "$_ws_ok" = 1 ] || break
