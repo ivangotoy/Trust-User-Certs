@@ -225,12 +225,12 @@ su -c 'sh /data/adb/modules/trust-user-certs/service.sh --certs'  # user/custom 
 su -c 'sh /data/adb/modules/trust-user-certs/service.sh --log 200'  # tail of the service log
 su -c 'sh /data/adb/modules/trust-user-certs/service.sh --clear-log'
 su -c 'sh /data/adb/modules/trust-user-certs/service.sh --force-inject'  # refresh the overlay, rebuilding it if verification fails
-su -c 'sh /data/adb/modules/trust-user-certs/service.sh --sync'  # one live sync pass (restarts a dead watcher)
+su -c 'sh /data/adb/modules/trust-user-certs/service.sh --sync'  # one live sync pass (restarts a dead watcher; skipped while BLOCKED)
 su -c 'sh /data/adb/modules/trust-user-certs/service.sh --watch-start'  # start the Live Sync watcher
 su -c 'sh /data/adb/modules/trust-user-certs/service.sh --watch-stop'
 su -c 'sh /data/adb/modules/trust-user-certs/service.sh --config LIVE_SYNC 1'  # also starts/stops the watcher
 su -c 'sh /data/adb/modules/trust-user-certs/service.sh --config LOG_LEVEL 2'
-su -c 'sh /data/adb/modules/trust-user-certs/service.sh --reset-fail'
+su -c 'sh /data/adb/modules/trust-user-certs/service.sh --reset-fail'  # lift the bootloop guard (rc=1 if the counter cannot be written)
 ```
 
 Quick health check:
