@@ -7,7 +7,8 @@
 #                               ash pass, e.g. in an alpine container
 #
 # Scratch goes to $TMPDIR. Device tools are stubs; nothing outside the scratch
-# dir is written, nothing is mounted, no process is signalled or detached.
+# dir is written, nothing is mounted, nothing is detached, and a test signals
+# only the child processes it started itself.
 
 TUC_REPO=$(cd "$(dirname "$0")/.." && pwd)
 ASH_ONLY=0
