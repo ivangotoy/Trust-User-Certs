@@ -33,6 +33,24 @@ for f in customize.sh post-fs-data.sh service.sh uninstall.sh sh/*.sh \
   if sh -n "$f" 2>"$TUC_WORK/err"; then ok "sh -n $f"; else ko "sh -n $f: $(cat "$TUC_WORK/err")"; fi
 done
 
+# Device shells: the root manager and the WebUI may run the module scripts
+# under mksh or toybox sh. Checked when one is installed, else one skip each.
+MODULE_SH="customize.sh post-fs-data.sh service.sh uninstall.sh sh/common.sh sh/inject.sh"
+if command -v mksh >/dev/null 2>&1; then
+  for f in $MODULE_SH; do
+    if mksh -n "$f" 2>"$TUC_WORK/err"; then ok "mksh -n $f"; else ko "mksh -n $f: $(cat "$TUC_WORK/err")"; fi
+  done
+else
+  skip "mksh -n (no mksh)"
+fi
+if command -v toybox >/dev/null 2>&1 && toybox sh -c : >/dev/null 2>&1; then
+  for f in $MODULE_SH; do
+    if toybox sh -n "$f" 2>"$TUC_WORK/err"; then ok "toybox sh -n $f"; else ko "toybox sh -n $f: $(cat "$TUC_WORK/err")"; fi
+  done
+else
+  skip "toybox sh -n (no toybox sh)"
+fi
+
 if [ "$ASH_ONLY" = 1 ]; then
   skip "bash -n .forgejo/module-ci.sh, JSON, YAML (host-only)"
 else
