@@ -21,7 +21,15 @@ refresh_base_certs() {
   if dir_has_files "$_rb_live"; then
     rm -f "$BASE_CERT_DIR"/* 2>/dev/null
     cp -f "$_rb_live"/* "$BASE_CERT_DIR"/ 2>/dev/null
-    log_debug "Base snapshot refreshed: $(count_files "$BASE_CERT_DIR") certs from $_rb_live"
+    _rb_n=$(count_files "$BASE_CERT_DIR")
+    _rb_want=$(count_files "$_rb_live")
+    if [ "$_rb_n" -lt "$_rb_want" ]; then
+      log_error "Base snapshot incomplete: $_rb_n of $_rb_want certs copied from $_rb_live (is /data full?)"
+      unset _rb_live _rb_n _rb_want
+      return 1
+    fi
+    log_debug "Base snapshot refreshed: $_rb_n certs from $_rb_live"
+    unset _rb_n _rb_want
   else
     log_warn "Live trust store $_rb_live is empty - snapshot not refreshed"
   fi
@@ -121,17 +129,22 @@ copy_custom_certs() {
 }
 
 # ── Build the full certificate set ────────────────────────────────────────────
+# Returns 1 if any copy came up short (a full /data, say). The callers then
+# leave the trust store alone: sync_store deletes whatever is not staged, and
+# a mount of a short stage would hide the stock certificates from every app.
 stage_certs() {
-  refresh_base_certs
+  refresh_base_certs || return 1
 
   mkdir -p "$CERT_STAGE" 2>/dev/null
   rm -f "$CERT_STAGE"/* 2>/dev/null
 
   cp -f "$BASE_CERT_DIR"/* "$CERT_STAGE"/ 2>/dev/null
+  _sc_src="$BASE_CERT_DIR"
 
   if ! dir_has_files "$CERT_STAGE"; then
     log_warn "Base snapshot empty - falling back to the live store"
-    cp -f "$(trust_store_dir)"/* "$CERT_STAGE"/ 2>/dev/null
+    _sc_src=$(trust_store_dir)
+    cp -f "$_sc_src"/* "$CERT_STAGE"/ 2>/dev/null
   fi
 
   if dir_has_files "$USER_CERT_DIR"; then
@@ -142,6 +155,22 @@ stage_certs() {
   fi
 
   copy_custom_certs "$CERT_STAGE"
+
+  # Checked before the exclusion rules, which may drop any of these on purpose.
+  if ! dir_has_files "$CERT_STAGE"; then
+    log_error "Staging failed: no certificates staged"
+    unset _sc_src
+    return 1
+  fi
+  for _sc_f in "$_sc_src"/* "$USER_CERT_DIR"/* "$CUSTOM_CERT_DIR"/*; do
+    [ -f "$_sc_f" ] || continue
+    [ -f "$CERT_STAGE/${_sc_f##*/}" ] && continue
+    log_error "Staging failed: ${_sc_f##*/} from ${_sc_f%/*} was not copied (is /data full?)"
+    unset _sc_src _sc_f
+    return 1
+  done
+  unset _sc_src _sc_f
+
   remove_conflicting_certs "$CERT_STAGE"
 
   log_info "Staged $(count_files "$CERT_STAGE") certificates"
@@ -202,7 +231,12 @@ verify_inject() {
 # ── Android <= 13: tmpfs over /system/etc/security/cacerts ────────────────────
 inject_low() {
   _il_ctx=$(read_selinux_context "$SYSTEM_CERT_DIR")
-  stage_certs
+  if ! stage_certs; then
+    log_error "Nothing mounted - the trust store is left as it is"
+    write_stats "INJECT_OK=0"
+    unset _il_ctx
+    return 1
+  fi
 
   if ! is_mounted "$SYSTEM_CERT_DIR"; then
     if ! mount -t tmpfs tmpfs "$SYSTEM_CERT_DIR" 2>/dev/null; then
@@ -254,7 +288,11 @@ unmount_apex_overlay() {
 }
 
 inject_high() {
-  stage_certs
+  if ! stage_certs; then
+    log_error "Nothing mounted - the trust store is left as it is"
+    write_stats "INJECT_OK=0"
+    return 1
+  fi
   fix_permissions "$CERT_STAGE"
 
   _ih_ver=""
@@ -354,7 +392,12 @@ sync_store() {
     return $?
   fi
 
-  stage_certs
+  if ! stage_certs; then
+    log_error "Sync skipped - the trust store is left as it is"
+    write_stats "INJECT_OK=0"
+    unset _ss_store
+    return 1
+  fi
 
   # Propagate deletions: anything in the live store that is no longer staged.
   for _ss_f in "$_ss_store"/*; do

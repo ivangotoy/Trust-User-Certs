@@ -92,9 +92,16 @@ EOF
   # cp: forwards to the real cp. TUC_CP_FAIL_DEST=<substring> makes a copy whose
   # destination (last argument) contains it fail - after copying only the
   # first source when TUC_CP_FAIL_MODE=partial (a full disk).
+  # TUC_CP_FAIL_SRC=<substring> fails a copy from a source that contains it.
   cat >"$TUC_STUBS/cp" <<'EOF'
 #!/bin/sh
 last=""; for a in "$@"; do last="$a"; done
+if [ -n "${TUC_CP_FAIL_SRC:-}" ]; then
+  for a in "$@"; do
+    [ "$a" = "$last" ] && break
+    case "$a" in *"$TUC_CP_FAIL_SRC"*) exit 1 ;; esac
+  done
+fi
 if [ -n "${TUC_CP_FAIL_DEST:-}" ]; then
   case "$last" in
     *"$TUC_CP_FAIL_DEST"*)
@@ -135,7 +142,7 @@ new_device() {
   : >"$TUC_CALLS"
   TUC_SDK="${1:-33}"
   export TUC_ROOT TUC_MOUNTS TUC_CALLS TUC_SDK TUC_REAL_CP TUC_REAL_CHMOD
-  unset TUC_CP_FAIL_DEST TUC_CP_FAIL_MODE TUC_MOUNT_FAIL TUC_ZYGOTE_PIDS TUC_BOOT_COMPLETED
+  unset TUC_CP_FAIL_DEST TUC_CP_FAIL_MODE TUC_CP_FAIL_SRC TUC_MOUNT_FAIL TUC_ZYGOTE_PIDS TUC_BOOT_COMPLETED
   "$TUC_REAL_CP" "$TUC_REPO/post-fs-data.sh" "$TUC_REPO/service.sh" "$TUC_REPO/module.prop" "$TUC_MOD/"
   "$TUC_REAL_CP" "$TUC_REPO/sh/inject.sh" "$TUC_MOD/sh/"
   cat >"$TUC_MOD/sh/common.sh" <<EOF
