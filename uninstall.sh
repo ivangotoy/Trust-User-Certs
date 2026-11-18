@@ -1,5 +1,7 @@
 #!/system/bin/sh
-# uninstall.sh - runs when the module is removed via Magisk/KSU/APatch.
+# uninstall.sh - runs when the module is removed via Magisk/KSU/APatch. The
+# root manager does that at the next boot, early (post-fs-data stage), before
+# zygote and apps start; the module's own boot scripts no longer run then.
 
 DATA_DIR="/data/adb/trust-user-certs"
 
@@ -24,7 +26,8 @@ if tuc_is "$PID" "inotifyd" && tuc_is "$PID" "/data/misc/user/0"; then
   kill "$PID" 2>/dev/null
 fi
 
-# Drop the overlay so the stock trust store is back without a reboot.
+# Cleanup only, not a live revert: at the boot that removes the module nothing
+# has mounted the overlay. Kept for a manager that runs this script at once.
 umount /apex/com.android.conscrypt/cacerts 2>/dev/null
 umount /system/etc/security/cacerts 2>/dev/null
 
