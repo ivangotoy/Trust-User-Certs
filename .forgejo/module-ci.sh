@@ -36,7 +36,8 @@ UPDATE_JSON_PATH=".forgejo/update.json" SYNC_ROOT_PROP="" CHANGELOG_PATH="" UPST
 log() { printf '==> %s\n' "$*" >&2; }
 die() { printf 'ERROR: %s\n' "$*" >&2; exit 1; }
 auth() { printf 'Authorization: token %s' "$FORGEJO_TOKEN"; }
-api() { local m="$1" p="$2"; shift 2; curl -fsS --retry 3 -X "$m" -H "$(auth)" "$@" "$API$p"; }
+api() { local m="$1" p="$2"; shift 2; curl -sS --fail-with-body --retry 3 -X "$m" -H "$(auth)" "$@" "$API$p"; }
+http_code() { curl -sS -o /dev/null -w '%{http_code}' -H "$(auth)" "$API$1"; }
 jget() { python3 -I -c 'import json,sys;d=json.load(sys.stdin)
 for k in sys.argv[1].split("."): d=d[k] if not k.isdigit() else d[int(k)]
 print(d)' "$1"; }
@@ -141,16 +142,19 @@ ZIP_SHA="$(sha "$ZIP")"
 log "zip $ZIP_NAME sha256 $ZIP_SHA"
 
 # 4. draft release, upload, download back, verify
-if curl -fsS -o /dev/null -H "$(auth)" "$API/releases/tags/$TAG"; then die "release $TAG exists"; fi
-if curl -fsS -o /dev/null -H "$(auth)" "$API/tags/$TAG"; then die "tag $TAG exists"; fi
+[ "$(http_code "/releases/tags/$TAG")" = 404 ] || die "release $TAG exists (or the check failed)"
+[ "$(http_code "/tags/$TAG")" = 404 ] || die "tag $TAG exists (or the check failed)"
 BODY="$(printf 'Built by module-release #%s from %s (%s).\nversionCode %s\nsha256 %s  %s\nupdateJson %s' \
     "$RUN_NUMBER" "${SRC_SHA:0:12}" "${UPSTREAM_DESC:-fork main}" "$VC" "$ZIP_SHA" "$ZIP_NAME" "$UPDATE_URL")"
 REQ="$(python3 -I -c 'import json,sys;print(json.dumps({"tag_name":sys.argv[1],"target_commitish":"main","name":sys.argv[2],"body":sys.argv[3],"draft":True}))' "$TAG" "$ZIP_PREFIX $VERSION" "$BODY")"
 RELEASE_ID="$(api POST /releases -H 'Content-Type: application/json' -d "$REQ" | jget id)"
 log "draft release $RELEASE_ID"
+log "uploading $ZIP_NAME"
 ASSET_ID="$(api POST "/releases/$RELEASE_ID/assets?name=$ZIP_NAME" -F "attachment=@$ZIP" | jget id)"
+log "reading back asset $ASSET_ID"
 api GET "/releases/$RELEASE_ID/assets/$ASSET_ID" | jget browser_download_url > "$OUT/asset-url"
-curl -fsSL -H "$(auth)" -o "$OUT/back.zip" "$(cat "$OUT/asset-url")"
+log "downloading $(cat "$OUT/asset-url")"
+curl -sSL --fail-with-body -H "$(auth)" -o "$OUT/back.zip" "$(cat "$OUT/asset-url")"
 [ "$(sha "$OUT/back.zip")" = "$ZIP_SHA" ] || die "downloaded asset sha256 differs"
 unzip -tq "$OUT/back.zip" >/dev/null || die "downloaded asset fails zip test"
 
