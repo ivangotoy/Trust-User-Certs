@@ -6,17 +6,41 @@
 
 # sizes_match <dst> <src>... - true if every regular file of the sources is in
 # <dst> with the size it has in the last source holding that name (a later
-# source overrides an earlier one, as the copies do). Prints the first name
-# that is missing or has another size. A full /data or tmpfs can leave a file
-# out, empty or cut part way. One wc per directory and one awk in all.
+# source overrides an earlier one, as the copies do). Prints every name that
+# is missing or has another size. A full /data or tmpfs can leave a file out,
+# empty or cut part way. One wc per directory and one awk in all; without any
+# awk, a slower loop with one wc per file.
 sizes_match() {
   _sm_dst="$1"
   shift
+  if [ -z "$CMD_AWK" ]; then
+    _sm_rc=0
+    while [ $# -gt 0 ]; do
+      _sm_s="$1"
+      shift
+      for _sm_f in "$_sm_s"/*; do
+        [ -f "$_sm_f" ] || continue
+        _sm_n="${_sm_f##*/}"
+        _sm_later=0
+        for _sm_l in "$@"; do
+          [ -f "$_sm_l/$_sm_n" ] && { _sm_later=1; break; }
+        done
+        [ "$_sm_later" = 1 ] && continue
+        if [ ! -f "$_sm_dst/$_sm_n" ] ||
+          [ "$(wc -c <"$_sm_f")" != "$(wc -c <"$_sm_dst/$_sm_n")" ]; then
+          printf '%s\n' "$_sm_n"
+          _sm_rc=1
+        fi
+      done
+    done
+    unset _sm_dst _sm_s _sm_f _sm_n _sm_later _sm_l
+    return "$_sm_rc"
+  fi
   {
     for _sm_d in "$@"; do wc -c "$_sm_d"/* 2>/dev/null; done
     echo '--'
     wc -c "$_sm_dst"/* 2>/dev/null
-  } | ${CMD_AWK:-awk} '
+  } | $CMD_AWK '
     $0 == "--" { dst = 1; next }
     {
       s = $1; p = $0
@@ -26,7 +50,9 @@ sizes_match() {
       if (dst) D[n] = s; else W[n] = s
     }
     END {
-      for (n in W) if (!(n in D) || D[n] != W[n]) { print n; exit 1 }
+      bad = 0
+      for (n in W) if (!(n in D) || D[n] != W[n]) { print n; bad = 1 }
+      exit bad
     }'
   _sm_rc=$?
   unset _sm_dst _sm_d
@@ -52,7 +78,7 @@ refresh_base_certs() {
     cp -f "$_rb_live"/* "$BASE_CERT_DIR"/ 2>/dev/null
     # Every file must have arrived whole.
     if ! _rb_bad=$(sizes_match "$BASE_CERT_DIR" "$_rb_live"); then
-      log_error "Base snapshot incomplete: $_rb_bad not copied whole from $_rb_live (is /data full?)"
+      log_error "Base snapshot incomplete: $(printf '%s\n' "$_rb_bad" | head -n 1) not copied whole from $_rb_live (is /data full?)"
       unset _rb_live _rb_bad
       return 1
     fi
@@ -202,7 +228,7 @@ stage_certs() {
     return 1
   fi
   if ! _sc_bad=$(sizes_match "$CERT_STAGE" "$_sc_src" "$USER_CERT_DIR" "$CUSTOM_CERT_DIR"); then
-    log_error "Staging failed: $_sc_bad was not copied whole (is /data full?)"
+    log_error "Staging failed: $(printf '%s\n' "$_sc_bad" | head -n 1) was not copied whole (is /data full?)"
     rm -rf "$CERT_STAGE" 2>/dev/null
     unset _sc_src _sc_bad
     return 1
@@ -216,32 +242,36 @@ stage_certs() {
 }
 
 # ── Copy into the live store ──────────────────────────────────────────────────
-# store_fill <store> - copies the stage into <store> and prints the first file
-# that did not arrive whole (rc 1). A file already in <store> is not rewritten
-# when it is a stock certificate (in the base snapshot and not overridden by a
-# user or custom one) or an identical user/custom one, so a copy that fails on
-# a full tmpfs can never cut a stock certificate apps already trust.
+# store_fill <store> - copies the stage into <store> and prints the files that
+# did not arrive whole (rc 1). Only what is missing from <store> or differs in
+# size is copied, plus user/custom certificates whose content changed: a copy
+# that fails on a full tmpfs then never touches a stock certificate apps
+# already trust.
 store_fill() {
   _sf_store="$1"
   if ! dir_has_files "$_sf_store"; then
     cp -f "$CERT_STAGE"/* "$_sf_store"/ 2>/dev/null
   else
+    _sf_need=$(sizes_match "$_sf_store" "$CERT_STAGE")
+    _sf_nl='
+'
     for _sf_f in "$CERT_STAGE"/*; do
       [ -f "$_sf_f" ] || continue
       _sf_n="${_sf_f##*/}"
-      if [ -f "$_sf_store/$_sf_n" ]; then
-        if [ -f "$USER_CERT_DIR/$_sf_n" ] || [ -f "$CUSTOM_CERT_DIR/$_sf_n" ]; then
+      case "$_sf_nl$_sf_need$_sf_nl" in
+        *"$_sf_nl$_sf_n$_sf_nl"*) ;;
+        *)
+          [ -f "$USER_CERT_DIR/$_sf_n" ] || [ -f "$CUSTOM_CERT_DIR/$_sf_n" ] || continue
           cmp -s "$_sf_f" "$_sf_store/$_sf_n" 2>/dev/null && continue
-        elif [ -f "$BASE_CERT_DIR/$_sf_n" ]; then
-          continue
-        fi
-      fi
+          ;;
+      esac
       cp -f "$_sf_f" "$_sf_store"/ 2>/dev/null
     done
   fi
-  sizes_match "$_sf_store" "$CERT_STAGE"
+  _sf_bad=$(sizes_match "$_sf_store" "$CERT_STAGE")
   _sf_rc=$?
-  unset _sf_store _sf_f _sf_n
+  [ "$_sf_rc" -eq 0 ] || printf '%s\n' "$_sf_bad" | head -n 1
+  unset _sf_store _sf_f _sf_n _sf_need _sf_nl _sf_bad
   return "$_sf_rc"
 }
 
