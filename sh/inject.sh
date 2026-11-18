@@ -215,6 +215,36 @@ stage_certs() {
   return 0
 }
 
+# ── Copy into the live store ──────────────────────────────────────────────────
+# store_fill <store> - copies the stage into <store> and prints the first file
+# that did not arrive whole (rc 1). A file already in <store> is not rewritten
+# when it is a stock certificate (in the base snapshot and not overridden by a
+# user or custom one) or an identical user/custom one, so a copy that fails on
+# a full tmpfs can never cut a stock certificate apps already trust.
+store_fill() {
+  _sf_store="$1"
+  if ! dir_has_files "$_sf_store"; then
+    cp -f "$CERT_STAGE"/* "$_sf_store"/ 2>/dev/null
+  else
+    for _sf_f in "$CERT_STAGE"/*; do
+      [ -f "$_sf_f" ] || continue
+      _sf_n="${_sf_f##*/}"
+      if [ -f "$_sf_store/$_sf_n" ]; then
+        if [ -f "$USER_CERT_DIR/$_sf_n" ] || [ -f "$CUSTOM_CERT_DIR/$_sf_n" ]; then
+          cmp -s "$_sf_f" "$_sf_store/$_sf_n" 2>/dev/null && continue
+        elif [ -f "$BASE_CERT_DIR/$_sf_n" ]; then
+          continue
+        fi
+      fi
+      cp -f "$_sf_f" "$_sf_store"/ 2>/dev/null
+    done
+  fi
+  sizes_match "$_sf_store" "$CERT_STAGE"
+  _sf_rc=$?
+  unset _sf_store _sf_f _sf_n
+  return "$_sf_rc"
+}
+
 # ── Verification ──────────────────────────────────────────────────────────────
 # Every user certificate must be visible in the live store, and the store must
 # not be smaller than the base system set. Without this the module used to
@@ -276,23 +306,35 @@ inject_low() {
     return 1
   fi
 
+  _il_new=0
   if ! is_mounted "$SYSTEM_CERT_DIR"; then
     if ! mount -t tmpfs tmpfs "$SYSTEM_CERT_DIR" 2>/dev/null; then
       log_error "Failed to mount tmpfs on $SYSTEM_CERT_DIR"
       write_stats "INJECT_OK=0"
-      unset _il_ctx
+      unset _il_ctx _il_new
       return 1
     fi
+    _il_new=1
     log_info "tmpfs mounted on $SYSTEM_CERT_DIR"
   else
     log_debug "tmpfs already present on $SYSTEM_CERT_DIR - refreshing contents"
   fi
 
-  cp -f "$CERT_STAGE"/* "$SYSTEM_CERT_DIR"/ 2>/dev/null
+  if ! _il_bad=$(store_fill "$SYSTEM_CERT_DIR"); then
+    log_error "Copy into $SYSTEM_CERT_DIR incomplete: $_il_bad (is the tmpfs full?)"
+    # A tmpfs this run mounted goes again, so the stock store shows; stock
+    # files in one that was already there were left untouched.
+    if [ "$_il_new" = 1 ] && umount "$SYSTEM_CERT_DIR" 2>/dev/null; then
+      log_warn "tmpfs removed again - the stock trust store is back"
+    fi
+    write_stats "INJECT_OK=0"
+    unset _il_ctx _il_new _il_bad
+    return 1
+  fi
   fix_permissions "$SYSTEM_CERT_DIR"
   apply_selinux_context "$_il_ctx" "$SYSTEM_CERT_DIR"
 
-  unset _il_ctx
+  unset _il_ctx _il_new _il_bad
   verify_inject
 }
 
@@ -445,6 +487,14 @@ sync_store() {
     return 1
   fi
 
+  # New and changed certificates first; stock ones already live are kept.
+  if ! _ss_bad=$(store_fill "$_ss_store"); then
+    log_error "Sync incomplete: $_ss_bad did not reach $_ss_store whole (is the tmpfs full?) - stock certificates untouched"
+    write_stats "INJECT_OK=0"
+    unset _ss_store _ss_bad
+    return 1
+  fi
+
   # Propagate deletions: anything in the live store that is no longer staged.
   for _ss_f in "$_ss_store"/*; do
     [ -f "$_ss_f" ] || continue
@@ -453,13 +503,12 @@ sync_store() {
     log_debug "Removed stale cert ${_ss_f##*/}"
   done
 
-  cp -f "$CERT_STAGE"/* "$_ss_store"/ 2>/dev/null
   fix_permissions "$_ss_store"
   if [ "$SDK" -le 33 ]; then
     apply_selinux_context "" "$_ss_store"
   fi
 
-  unset _ss_store _ss_f
+  unset _ss_store _ss_f _ss_bad
   verify_inject
 }
 
