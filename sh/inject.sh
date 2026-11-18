@@ -517,6 +517,10 @@ sync_store() {
   fix_permissions "$_ss_store"
   if [ "$SDK" -le 33 ]; then
     apply_selinux_context "" "$_ss_store"
+  else
+    # As inject_high: the files get the store dir's own label (the one copied
+    # from the stock dir at inject), not whatever a new file inherited.
+    apply_selinux_context "$(read_selinux_context "$_ss_store")" "$_ss_store"
   fi
 
   unset _ss_store _ss_f _ss_bad
