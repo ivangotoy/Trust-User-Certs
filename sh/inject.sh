@@ -305,6 +305,14 @@ inject_high() {
 
   unmount_apex_overlay "$_ih_ver"
 
+  # A staging tmpfs left by an interrupted run would stay mounted under the
+  # new one for good.
+  _ih_i=0
+  while is_mounted "$TEMP_MOUNT" && [ "$_ih_i" -lt 10 ]; do
+    umount "$TEMP_MOUNT" 2>/dev/null || umount -l "$TEMP_MOUNT" 2>/dev/null || break
+    _ih_i=$((_ih_i + 1))
+  done
+  unset _ih_i
   rm -rf "$TEMP_MOUNT" 2>/dev/null
   mkdir -p "$TEMP_MOUNT" 2>/dev/null
   if ! mount -t tmpfs tmpfs "$TEMP_MOUNT" 2>/dev/null; then
