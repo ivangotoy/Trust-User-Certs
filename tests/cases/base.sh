@@ -1,9 +1,4 @@
-# Behaviour of the module as shipped. Fixture certificates are made up:
-#   test-ca.pem   CN=TUC Test Root CA, subject_hash_old 49a507ae
-#   other-ca.pem  CN=TUC Other CA,     subject_hash_old 6a1c5d49
-
-TEST_HASH=49a507ae
-OTHER_HASH=6a1c5d49
+# Behaviour of the module as shipped.
 
 test_cert_name_hash_pem_and_der() {
   new_device 33

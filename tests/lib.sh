@@ -8,6 +8,12 @@
 
 TUC_STUBS="$TUC_WORK/stubs"
 
+# Fixture certificates (made up, no keys):
+#   test-ca.pem   CN=TUC Test Root CA, subject_hash_old 49a507ae
+#   other-ca.pem  CN=TUC Other CA,     subject_hash_old 6a1c5d49
+TEST_HASH=49a507ae
+OTHER_HASH=6a1c5d49
+
 # Real tools the stubs forward to, resolved before the stubs go on PATH.
 TUC_REAL_CP=$(command -v cp)
 TUC_REAL_CHMOD=$(command -v chmod)
