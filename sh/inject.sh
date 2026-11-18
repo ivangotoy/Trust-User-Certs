@@ -36,7 +36,7 @@ sizes_match() {
     unset _sm_dst _sm_s _sm_f _sm_n _sm_later _sm_l
     return "$_sm_rc"
   fi
-  {
+  _sm_out=$({
     for _sm_d in "$@"; do wc -c "$_sm_d"/* 2>/dev/null; done
     echo '--'
     wc -c "$_sm_dst"/* 2>/dev/null
@@ -53,9 +53,20 @@ sizes_match() {
       bad = 0
       for (n in W) if (!(n in D) || D[n] != W[n]) { print n; bad = 1 }
       exit bad
-    }'
+    }')
   _sm_rc=$?
-  unset _sm_dst _sm_d
+  # wc also lists directories; the copies skip them, so only names that are
+  # a regular file in some source are a shortfall (checked on this path only).
+  if [ "$_sm_rc" -ne 0 ]; then
+    _sm_out=$(printf '%s\n' "$_sm_out" | while IFS= read -r _sm_n; do
+      for _sm_d in "$@"; do
+        [ -f "$_sm_d/$_sm_n" ] && { printf '%s\n' "$_sm_n"; break; }
+      done
+    done)
+    _sm_rc=0
+    [ -z "$_sm_out" ] || { printf '%s\n' "$_sm_out"; _sm_rc=1; }
+  fi
+  unset _sm_dst _sm_d _sm_out _sm_n
   return "$_sm_rc"
 }
 
