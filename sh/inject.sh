@@ -21,15 +21,19 @@ refresh_base_certs() {
   if dir_has_files "$_rb_live"; then
     rm -f "$BASE_CERT_DIR"/* 2>/dev/null
     cp -f "$_rb_live"/* "$BASE_CERT_DIR"/ 2>/dev/null
-    _rb_n=$(count_files "$BASE_CERT_DIR")
-    _rb_want=$(count_files "$_rb_live")
-    if [ "$_rb_n" -lt "$_rb_want" ]; then
-      log_error "Base snapshot incomplete: $_rb_n of $_rb_want certs copied from $_rb_live (is /data full?)"
-      unset _rb_live _rb_n _rb_want
-      return 1
-    fi
-    log_debug "Base snapshot refreshed: $_rb_n certs from $_rb_live"
-    unset _rb_n _rb_want
+    # Every file must have arrived, and not empty (a full /data can leave
+    # files without their data behind).
+    for _rb_f in "$_rb_live"/*; do
+      [ -f "$_rb_f" ] || continue
+      _rb_b="$BASE_CERT_DIR/${_rb_f##*/}"
+      if [ ! -f "$_rb_b" ] || { [ -s "$_rb_f" ] && [ ! -s "$_rb_b" ]; }; then
+        log_error "Base snapshot incomplete: ${_rb_f##*/} not copied from $_rb_live (is /data full?)"
+        unset _rb_live _rb_f _rb_b
+        return 1
+      fi
+    done
+    log_debug "Base snapshot refreshed: $(count_files "$BASE_CERT_DIR") certs from $_rb_live"
+    unset _rb_f _rb_b
   else
     log_warn "Live trust store $_rb_live is empty - snapshot not refreshed"
   fi
@@ -175,7 +179,10 @@ stage_certs() {
   fi
   for _sc_f in "$_sc_src"/* "$USER_CERT_DIR"/* "$CUSTOM_CERT_DIR"/*; do
     [ -f "$_sc_f" ] || continue
-    [ -f "$CERT_STAGE/${_sc_f##*/}" ] && continue
+    if [ -f "$CERT_STAGE/${_sc_f##*/}" ]; then
+      [ -s "$_sc_f" ] || continue
+      [ -s "$CERT_STAGE/${_sc_f##*/}" ] && continue
+    fi
     log_error "Staging failed: ${_sc_f##*/} from ${_sc_f%/*} was not copied (is /data full?)"
     rm -rf "$CERT_STAGE" 2>/dev/null
     unset _sc_src _sc_f
