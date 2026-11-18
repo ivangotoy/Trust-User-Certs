@@ -1,6 +1,6 @@
 {
-  "version": "v5.2-ci6",
-  "versionCode": 8,
-  "zipUrl": "https://git.digtvbg.com/ivangotoy/Trust-User-Certs/releases/download/v5.2-ci6/Trust-User-Certs-v5.2-ci6.zip",
-  "changelog": "https://git.digtvbg.com/ivangotoy/Trust-User-Certs/raw/commit/59004b5951d10f9abb28117a53cb7c2837fed547/CHANGELOG.md"
+  "version": "v5.2-ci7",
+  "versionCode": 9,
+  "zipUrl": "https://git.digtvbg.com/ivangotoy/Trust-User-Certs/releases/download/v5.2-ci7/Trust-User-Certs-v5.2-ci7.zip",
+  "changelog": "https://git.digtvbg.com/ivangotoy/Trust-User-Certs/raw/commit/bb1d3ebcefe4558cd50ed62a3a86e35804779666/CHANGELOG.md"
 }
