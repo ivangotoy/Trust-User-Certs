@@ -101,6 +101,8 @@ BLOCKED=0
 EOF
 
   echo "0" >"$FAIL_FILE"
+  # The bootloop guard's marker goes with the counter (see post-fs-data.sh).
+  rm -f "$DATA_DIR/blocked" 2>/dev/null
   rm -rf "$LOCK_DIR"/*.lock 2>/dev/null
   rm -rf /mnt/tuc_instaler /mnt/tuc_stage 2>/dev/null
 

@@ -28,3 +28,14 @@ test_install_does_not_import_the_shell_writable_dir() {
   assert_file "$TUC_ROOT/data/local/tmp/cert/$TEST_HASH.0" "old dir left alone"
   case "$out" in *"not imported"*) ;; *) fail "no warning in: $out" ;; esac
 }
+
+test_install_clears_the_guard_marker() {
+  new_device 33
+  echo 3 >"$TUC_DATA/boot_fail_count"
+  run_mod post-fs-data.sh
+  assert_file "$TUC_DATA/blocked" "precondition: marker written"
+  run_customize >/dev/null
+  assert_eq "$(cat "$TUC_DATA/boot_fail_count")" 0 "counter reset by the installer"
+  assert_no_file "$TUC_DATA/blocked" "marker removed by the installer"
+  assert_eq "$(run_mod service.sh --status | sed -n 's/^BLOCKED=//p')" 0 "status not blocked"
+}
