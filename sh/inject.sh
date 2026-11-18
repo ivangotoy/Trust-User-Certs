@@ -315,7 +315,14 @@ store_fill() {
   fi
   _sf_bad=$(sizes_match "$_sf_store" "$CERT_STAGE")
   _sf_rc=$?
-  [ "$_sf_rc" -eq 0 ] || printf '%s\n' "$_sf_bad" | head -n 1
+  if [ "$_sf_rc" -ne 0 ]; then
+    # Every such name was copied by this run; a cut file is no certificate,
+    # and left in place it would count as trusted in --status.
+    printf '%s\n' "$_sf_bad" | while IFS= read -r _sf_n; do
+      [ -n "$_sf_n" ] && rm -f "$_sf_store/$_sf_n" 2>/dev/null
+    done
+    printf '%s\n' "$_sf_bad" | head -n 1
+  fi
   unset _sf_store _sf_f _sf_n _sf_need _sf_nl _sf_bad
   return "$_sf_rc"
 }
