@@ -639,11 +639,17 @@ boot_flow() {
   fi
 
   # Reaching late_start with a booted system is the only honest signal that the
-  # current injection did not put the device into a bootloop.
+  # current injection did not put the device into a bootloop. A boot that the
+  # guard blocked injected nothing, so it proves nothing: the counter stays
+  # until it is reset by hand.
   if wait_for_prop sys.boot_completed 1 180; then
     sleep "$SETTLE_SECONDS"
-    write_fail_count 0
-    log_info "Boot completed - fail counter reset"
+    if [ "$(read_stat BLOCKED)" = "1" ]; then
+      log_warn "Boot completed with the bootloop guard active - fail counter left at $(read_fail_count) until it is reset"
+    else
+      write_fail_count 0
+      log_info "Boot completed - fail counter reset"
+    fi
   else
     log_warn "sys.boot_completed never turned 1 - fail counter left at $(read_fail_count)"
   fi
