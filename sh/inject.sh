@@ -367,6 +367,11 @@ unmount_apex_overlay() {
   return 0
 }
 
+# Order: the new set is built and checked on its own tmpfs first; the active
+# overlay is released only once that set is complete, so any failure up to
+# that point leaves it in place. A bind that fails after the release leaves
+# the stock store (nothing else is bound then); a restore bind of the old set
+# would fail the same way, so none is tried.
 inject_high() {
   if ! stage_certs; then
     log_error "Nothing mounted - the trust store is left as it is"
@@ -376,14 +381,12 @@ inject_high() {
   fix_permissions "$CERT_STAGE"
 
   _ih_ver=""
-  for _ih_cand in /apex/com.android.conscrypt@*; do
+  for _ih_cand in "${APEX_CONSCRYPT_DIR%/cacerts}"@*; do
     [ -d "$_ih_cand" ] || continue
     _ih_ver="$_ih_cand"
     break
   done
   log_debug "Versioned apex dir: ${_ih_ver:-none}"
-
-  unmount_apex_overlay "$_ih_ver"
 
   # A staging tmpfs left by an interrupted run would stay mounted under the
   # new one for good.
@@ -396,22 +399,36 @@ inject_high() {
   rm -rf "$TEMP_MOUNT" 2>/dev/null
   mkdir -p "$TEMP_MOUNT" 2>/dev/null
   if ! mount -t tmpfs tmpfs "$TEMP_MOUNT" 2>/dev/null; then
-    log_error "Failed to mount tmpfs on $TEMP_MOUNT"
+    log_error "Failed to mount tmpfs on $TEMP_MOUNT - the trust store is left as it is"
     write_stats "INJECT_OK=0"
-    unset _ih_ver
+    unset _ih_ver _ih_cand
     return 1
   fi
 
-  cp -f "$CERT_STAGE"/* "$TEMP_MOUNT"/ 2>/dev/null
+  if ! _ih_bad=$(store_fill "$TEMP_MOUNT"); then
+    log_error "New certificate set incomplete: $_ih_bad (is the tmpfs full?) - the trust store is left as it is"
+    umount "$TEMP_MOUNT" 2>/dev/null
+    rmdir "$TEMP_MOUNT" 2>/dev/null
+    write_stats "INJECT_OK=0"
+    unset _ih_ver _ih_cand _ih_bad
+    return 1
+  fi
   fix_permissions "$TEMP_MOUNT"
+
+  # The set is complete: swap. The label is read from the bare dir, after
+  # the old overlay is gone.
+  unmount_apex_overlay "$_ih_ver"
   apply_selinux_context "$(read_selinux_context "$APEX_CONSCRYPT_DIR")" "$TEMP_MOUNT"
 
-  _ih_rc=0
   if mount -o bind "$TEMP_MOUNT" "$APEX_CONSCRYPT_DIR" 2>/dev/null; then
     log_debug "bind ok: $APEX_CONSCRYPT_DIR"
   else
-    log_error "bind FAILED: $APEX_CONSCRYPT_DIR"
-    _ih_rc=1
+    log_error "bind FAILED: $APEX_CONSCRYPT_DIR - the stock trust store is in place"
+    umount "$TEMP_MOUNT" 2>/dev/null
+    rmdir "$TEMP_MOUNT" 2>/dev/null
+    write_stats "INJECT_OK=0"
+    unset _ih_ver _ih_cand _ih_bad
+    return 1
   fi
 
   if [ -n "$_ih_ver" ] && [ -d "$_ih_ver/cacerts" ]; then
@@ -450,13 +467,7 @@ inject_high() {
   umount "$TEMP_MOUNT" 2>/dev/null
   rmdir "$TEMP_MOUNT" 2>/dev/null
 
-  if [ "$_ih_rc" -ne 0 ]; then
-    write_stats "INJECT_OK=0"
-    unset _ih_ver _ih_rc _ih_pid
-    return 1
-  fi
-
-  unset _ih_ver _ih_rc _ih_pid _ih_cand
+  unset _ih_ver _ih_pid _ih_cand _ih_bad
   verify_inject
 }
 
