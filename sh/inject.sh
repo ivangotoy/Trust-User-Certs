@@ -61,6 +61,14 @@ remove_conflicting_certs() {
       case "$_rc_hash" in
         '' | '#'*) continue ;;
       esac
+      # A rule is a subject hash, never a path: anything else is skipped.
+      case "$_rc_hash" in
+        [0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f]) ;;
+        *)
+          log_warn "exclude_hashes: '$_rc_hash' is not an 8-digit lowercase hex hash - ignored"
+          continue
+          ;;
+      esac
       if [ -f "$_rc_dir/$_rc_hash.0" ] || [ -n "$(ls "$_rc_dir/$_rc_hash".* 2>/dev/null)" ]; then
         rm -f "$_rc_dir/$_rc_hash".* 2>/dev/null
         log_debug "Excluded by hash: $_rc_hash"
