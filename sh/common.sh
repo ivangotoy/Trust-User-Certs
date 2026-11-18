@@ -587,8 +587,17 @@ read_fail_count() {
 
 write_fail_count() {
   mkdir -p "$DATA_DIR" 2>/dev/null
-  printf '%s\n' "$1" >"$FAIL_FILE" 2>/dev/null
-  return 0
+  # Written aside and moved into place: a write cut short in place leaves an
+  # empty or partial file, which read_fail_count takes as 0 (guard cleared).
+  _wf_tmp="$FAIL_FILE.tmp.$$"
+  if printf '%s\n' "$1" >"$_wf_tmp" 2>/dev/null && mv -f "$_wf_tmp" "$FAIL_FILE" 2>/dev/null; then
+    unset _wf_tmp
+    return 0
+  fi
+  rm -f "$_wf_tmp" 2>/dev/null
+  log_warn "boot fail counter could not be written, kept at $(read_fail_count)"
+  unset _wf_tmp
+  return 1
 }
 
 # ── Small utilities ───────────────────────────────────────────────────────────
