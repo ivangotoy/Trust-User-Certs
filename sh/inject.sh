@@ -558,7 +558,13 @@ sync_store() {
 }
 
 # Live sync - sync_store plus counters, serialised against the watcher.
+# Nothing automatic (watcher, poll loop) and no Force Sync injects while the
+# bootloop guard is active: sync_store would escalate to inject_full.
 do_live_sync() {
+  if guard_blocked; then
+    log_warn "Live sync skipped - the bootloop guard is active; Force Inject or service.sh --reset-fail lifts it"
+    return 1
+  fi
   if ! lock_acquire "$SYNC_LOCK" 20; then
     log_warn "Live sync skipped - another sync is still running"
     return 1

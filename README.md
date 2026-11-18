@@ -252,7 +252,7 @@ The trust store is not overlaid. Check the service log for `Verify FAILED`; the 
 The overlay is active but not every user or custom certificate is trusted: one did not reach the store, or it has a wrong file name (Android ignores it, the card is tagged *wrong file name* and shows the right name). The certificate list marks which one. A certificate dropped by an exclusion rule is labelled *excluded by rule* and does not count as a failure.
 
 **Status shows BLOCKED**
-The bootloop guard tripped after three boots that did not complete. Press Reset Fail Counter, or:
+The bootloop guard tripped after three boots that did not complete. Until it is lifted nothing injects on its own: Live Sync and Force Sync skip, only Force Inject (which lifts the guard when it succeeds) injects. Press Reset Fail Counter, or:
 
 ```sh
 su -c 'echo 0 > /data/adb/trust-user-certs/boot_fail_count'
