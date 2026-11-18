@@ -53,13 +53,13 @@ on_install() {
   # shell could write to, i.e. anyone with adb could add a *system* trusted CA.
   chmod 700 "$DATA_DIR" "$CUSTOM_CERT_DIR"
 
-  # ── Migrate certificates from the old drop-in location ────────────────────
+  # ── The old drop-in location is never imported ────────────────────────────
+  # Any adb shell can write to it: an adb user could plant a certificate
+  # there before an update and have it trusted as a system CA. It is only
+  # reported, and left alone.
   if [ -d "$LEGACY_CERT_DIR" ]; then
-    if [ -n "$(ls -A "$LEGACY_CERT_DIR" 2>/dev/null)" ]; then
-      ui_print "- Migrating custom certs from $LEGACY_CERT_DIR"
-      cp -f "$LEGACY_CERT_DIR"/* "$CUSTOM_CERT_DIR"/ 2>/dev/null
-    fi
-    rm -rf "$LEGACY_CERT_DIR"
+    ui_print "! $LEGACY_CERT_DIR is not imported (any adb shell can write there)"
+    ui_print "  Copy custom certificates into $CUSTOM_CERT_DIR as root"
   fi
 
   # ── Config: keep the user's settings across updates ───────────────────────

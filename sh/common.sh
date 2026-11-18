@@ -777,9 +777,9 @@ repair_user_cert_dir() {
 }
 
 # ── Pre-v3 drop-in dir ────────────────────────────────────────────────────────
-# Any adb shell can write to $LEGACY_CUSTOM_CERT_DIR, so it is never imported at
-# boot - that would let anyone with adb add a system-trusted CA. Upgrades from
-# a pre-v3 version are migrated once, by customize.sh at install time.
+# Any adb shell can write to $LEGACY_CUSTOM_CERT_DIR, so it is never imported,
+# neither here at boot nor by customize.sh at install - that would let anyone
+# with adb add a system-trusted CA. It is only reported, and left alone.
 migrate_legacy() {
   [ -d "$LEGACY_CUSTOM_CERT_DIR" ] || return 0
   log_warn "$LEGACY_CUSTOM_CERT_DIR exists - not imported (any adb shell can write there); put custom certificates in $CUSTOM_CERT_DIR as root"
