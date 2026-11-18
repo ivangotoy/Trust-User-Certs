@@ -619,8 +619,11 @@ boot_flow() {
   repair_user_cert_dir
   write_stats "BOOT_STAGE=service"
 
-  _z=$(wait_for_zygote 60)
-  log_info "Zygote ready after ${_z}s"
+  if _z=$(wait_for_zygote 60); then
+    log_info "Zygote ready after ${_z}s"
+  else
+    log_warn "Zygote not seen after ${_z}s - continuing"
+  fi
 
   # Android >= 14: the injection deferred by post-fs-data.sh happens here.
   # This block MUST run before the LIVE_SYNC check below - in v2 the early
