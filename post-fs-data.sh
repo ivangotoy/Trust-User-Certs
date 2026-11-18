@@ -34,6 +34,8 @@ FAIL_COUNT=$(read_fail_count)
 if [ "$FAIL_COUNT" -ge "$FAIL_LIMIT" ]; then
   log_error "Boot fail counter is $FAIL_COUNT (limit $FAIL_LIMIT) - injection disabled to prevent a bootloop."
   log_error "Reset it from the WebUI or with: echo 0 > $FAIL_FILE"
+  printf '%s\n' "$FAIL_COUNT" >"$BLOCK_MARKER" 2>/dev/null ||
+    log_error "Could not write $BLOCK_MARKER"
   write_stats "INJECT_OK=0" "BLOCKED=1"
   exit 0
 fi
@@ -42,6 +44,8 @@ fi
 # booting. Clearing it right after a successful mount (as v2 did) made the
 # bootloop guard useless.
 write_fail_count $((FAIL_COUNT + 1))
+# Not blocked (also after a counter reset by hand): no marker may survive.
+rm -f "$BLOCK_MARKER" 2>/dev/null
 write_stats "BLOCKED=0"
 
 if [ "$SDK" -le 33 ]; then

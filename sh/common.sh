@@ -14,6 +14,8 @@ DATA_DIR="/data/adb/$MODULE_ID"
 CONFIG_FILE="$DATA_DIR/config"
 STATS_FILE="$DATA_DIR/stats"
 FAIL_FILE="$DATA_DIR/boot_fail_count"
+# Written by post-fs-data.sh when the bootloop guard blocks a boot.
+BLOCK_MARKER="$DATA_DIR/blocked"
 LOG_DIR="$DATA_DIR/logs"
 LOG_FILE="$LOG_DIR/service.log"
 LOCK_DIR="$DATA_DIR/locks"
@@ -598,6 +600,13 @@ write_fail_count() {
   log_warn "boot fail counter could not be written, kept at $(read_fail_count)"
   unset _wf_tmp
   return 1
+}
+
+# guard_blocked - true while the bootloop guard holds injection back: the
+# marker file or the BLOCKED stat. Either is enough, so one dropped write
+# (stats lock busy, full /data) cannot clear the guard.
+guard_blocked() {
+  [ -f "$BLOCK_MARKER" ] || [ "$(read_stat BLOCKED)" = "1" ]
 }
 
 # ── Small utilities ───────────────────────────────────────────────────────────

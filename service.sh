@@ -373,6 +373,7 @@ cmd_force_inject() {
   fi
   if [ "$_rc" -eq 0 ]; then
     write_fail_count 0
+    rm -f "$BLOCK_MARKER" 2>/dev/null
     write_stats "BLOCKED=0"
     log_info "Force inject complete"
   else
@@ -405,6 +406,7 @@ cmd_sync() {
 
 cmd_reset_fail() {
   write_fail_count 0
+  rm -f "$BLOCK_MARKER" 2>/dev/null
   write_stats "BLOCKED=0"
   log_info "Boot fail counter reset from the UI"
   echo "rc=0"
@@ -530,7 +532,7 @@ cmd_status() {
   printf 'CUSTOM_DIR=%s\n' "$CUSTOM_CERT_DIR"
   printf 'FAIL=%s\n' "$(read_fail_count)"
   printf 'FAIL_LIMIT=%s\n' "$FAIL_LIMIT"
-  printf 'BLOCKED=%s\n' "$(read_stat BLOCKED)"
+  printf 'BLOCKED=%s\n' "$(guard_blocked && echo 1 || echo 0)"
   printf 'INJECT_OK=%s\n' "$(read_stat INJECT_OK)"
   printf 'LAST_INJECT=%s\n' "$(read_stat LAST_INJECT)"
   printf 'LIVE_SYNC=%s\n' "$(read_cfg LIVE_SYNC)"
@@ -630,7 +632,7 @@ boot_flow() {
   # This block MUST run before the LIVE_SYNC check below - in v2 the early
   # `exit 0` for a disabled Live Sync also skipped the injection entirely.
   if [ "$SDK" -ge 34 ]; then
-    if [ "$(read_stat BLOCKED)" = "1" ]; then
+    if guard_blocked; then
       log_error "Deferred inject skipped - bootloop guard is active"
     else
       if inject_high; then
@@ -648,7 +650,7 @@ boot_flow() {
   # until it is reset by hand.
   if wait_for_prop sys.boot_completed 1 180; then
     sleep "$SETTLE_SECONDS"
-    if [ "$(read_stat BLOCKED)" = "1" ]; then
+    if guard_blocked; then
       log_warn "Boot completed with the bootloop guard active - fail counter left at $(read_fail_count) until it is reset"
     else
       write_fail_count 0
