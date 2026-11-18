@@ -159,12 +159,13 @@ PIDs from a file are never trusted on their own: a process counts as the watcher
 ├── config              - LIVE_SYNC, LOG_LEVEL
 ├── stats               - runtime state (watcher mode and PID, sync counts, INJECT_OK)
 ├── boot_fail_count     - bootloop protection counter
+├── blocked             - present while the bootloop guard is active
 ├── certs/              - your custom certificates
 ├── base_certs/         - pristine snapshot of the OS trust store
 ├── cert_stage/         - the merged set that gets mounted
 ├── locks/              - sync / stats / config locks
 ├── exclude_hashes      - exclusion rules by subject hash
-├── exclude_subjects    - exclusion rules by certificate body substring
+├── exclude_subjects    - exclusion rules by certificate body pattern
 ├── watcher.pid         - runtime only, cleared at boot
 ├── inotifyd.pid        - runtime only
 ├── watch.fifo          - inotifyd → watcher
