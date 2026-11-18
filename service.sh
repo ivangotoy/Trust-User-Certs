@@ -464,6 +464,17 @@ cmd_config() {
   return 0
 }
 
+# cert_is_excluded <file> <store> - dropped by a rule: missing from the stage
+# when there is one, else (a failed sync removed it) not in the store and
+# matched by the rules themselves.
+cert_is_excluded() {
+  if [ -d "$CERT_STAGE" ]; then
+    [ ! -f "$CERT_STAGE/${1##*/}" ]
+  else
+    [ ! -f "$2/${1##*/}" ] && cert_excluded "$1"
+  fi
+}
+
 cmd_status() {
   _store=$(trust_store_dir)
 
@@ -475,7 +486,7 @@ cmd_status() {
     for _f in "$USER_CERT_DIR"/*; do
       [ -f "$_f" ] || continue
       _users=$((_users + 1))
-      if [ -d "$CERT_STAGE" ] && [ ! -f "$CERT_STAGE/${_f##*/}" ]; then
+      if cert_is_excluded "$_f" "$_store"; then
         _excluded=$((_excluded + 1))
         continue
       fi
@@ -497,7 +508,7 @@ cmd_status() {
     for _f in "$CUSTOM_CERT_DIR"/*; do
       [ -f "$_f" ] || continue
       _cust=$((_cust + 1))
-      if [ -d "$CERT_STAGE" ] && [ ! -f "$CERT_STAGE/${_f##*/}" ]; then
+      if cert_is_excluded "$_f" "$_store"; then
         _cexcluded=$((_cexcluded + 1))
         continue
       fi
@@ -579,7 +590,7 @@ cmd_certs() {
       _base="${_f##*/}"
       if [ -f "$_store/$_base" ]; then
         _t=1
-      elif [ -d "$CERT_STAGE" ] && [ ! -f "$CERT_STAGE/$_base" ]; then
+      elif cert_is_excluded "$_f" "$_store"; then
         _t=x
       else
         _t=0

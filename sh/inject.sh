@@ -145,22 +145,56 @@ remove_conflicting_certs() {
       [ -f "$_rc_f" ] || continue
       _rc_base="${_rc_f##*/}"
       [ -f "$_rc_dir/$_rc_base" ] || continue
-      while IFS= read -r _rc_pat; do
-        _rc_pat="${_rc_pat%"$CR"}"
-        case "$_rc_pat" in
-          '' | '#'*) continue ;;
-        esac
-        if cert_has "$_rc_pat" "$_rc_f"; then
-          rm -f "$_rc_dir/$_rc_base" 2>/dev/null
-          log_debug "Excluded by subject '$_rc_pat': $_rc_base"
-          break
-        fi
-      done <"$EXCLUDE_SUBJ_FILE"
+      if _rc_pat=$(rule_subject_match "$_rc_f"); then
+        rm -f "$_rc_dir/$_rc_base" 2>/dev/null
+        log_debug "Excluded by subject '$_rc_pat': $_rc_base"
+      fi
     done
   done
 
   unset _rc_dir _rc_hash _rc_src _rc_f _rc_base _rc_pat
   return 0
+}
+
+# rule_subject_match <file> - prints the first exclude_subjects pattern found
+# in the certificate (rc 0), or nothing (rc 1).
+rule_subject_match() {
+  [ -s "$EXCLUDE_SUBJ_FILE" ] || return 1
+  while IFS= read -r _rs_pat; do
+    _rs_pat="${_rs_pat%"$CR"}"
+    case "$_rs_pat" in
+      '' | '#'*) continue ;;
+    esac
+    if cert_has "$_rs_pat" "$1"; then
+      printf '%s\n' "$_rs_pat"
+      unset _rs_pat
+      return 0
+    fi
+  done <"$EXCLUDE_SUBJ_FILE"
+  unset _rs_pat
+  return 1
+}
+
+# cert_excluded <file> - true if a rule drops this user/custom certificate:
+# an exclude_hashes line names the part of its file name before the dot, or
+# an exclude_subjects pattern is in it. The same rules the staging applies,
+# for when no stage is there to look at.
+cert_excluded() {
+  _ce_h="${1##*/}"
+  _ce_h="${_ce_h%%.*}"
+  if [ -f "$EXCLUDE_HASH_FILE" ]; then
+    while IFS= read -r _ce_l; do
+      [ "${_ce_l%"$CR"}" = "$_ce_h" ] || continue
+      case "$_ce_h" in
+        [0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f])
+          unset _ce_h _ce_l
+          return 0
+          ;;
+      esac
+    done <"$EXCLUDE_HASH_FILE"
+  fi
+  unset _ce_h _ce_l
+  rule_subject_match "$1" >/dev/null
 }
 
 # ── Custom certs ──────────────────────────────────────────────────────────────
