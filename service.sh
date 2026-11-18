@@ -257,8 +257,9 @@ poll_loop() {
       log_info "Poll: change detected in the certificate store"
       do_live_sync
       log_rotate
-      _cur=$(poll_fingerprint)
     fi
+    # The fingerprint from before the sync: a change made while it ran
+    # differs from it and is synced at the next poll.
     _last=$_cur
   done
 }
