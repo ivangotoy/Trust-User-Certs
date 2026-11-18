@@ -22,7 +22,7 @@ test_size_check_without_awk() {
   "$TUC_REAL_CP" "$TUC_ROOT/b/x.0" "$TUC_ROOT/a/y.0" "$TUC_ROOT/d/"
   for awk_mode in with without; do
     pre=""
-    [ "$awk_mode" = without ] && pre='CMD_AWK=""; '
+    [ "$awk_mode" = without ] && pre='CMD_AWK=""; awk() { return 127; }; '
     in_mod "${pre}sizes_match '$TUC_ROOT/d' '$TUC_ROOT/a' '$TUC_ROOT/b'" >/dev/null ||
       fail "$awk_mode awk: whole copy reported short"
     head -c 3 "$TUC_ROOT/a/y.0" >"$TUC_ROOT/d/y.0"
