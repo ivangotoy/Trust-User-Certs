@@ -428,7 +428,14 @@ lock_acquire() {
   while ! mkdir "$_lk_path" 2>/dev/null; do
     _lk_i=$((_lk_i + 1))
     if [ "$_lk_i" -gt "$_lk_timeout" ]; then
-      unset _lk_path _lk_timeout _lk_i
+      # A holder killed between its mkdir and its pid write leaves a lock
+      # that nothing else ever clears. Still without a pid after a whole
+      # timeout, it is taken over; rmdir never removes one that has a pid.
+      if [ ! -f "$_lk_path/pid" ] && rmdir "$_lk_path" 2>/dev/null &&
+        mkdir "$_lk_path" 2>/dev/null; then
+        break
+      fi
+      unset _lk_path _lk_timeout _lk_i _lk_owner
       return 1
     fi
     _lk_owner=$(cat "$_lk_path/pid" 2>/dev/null)
