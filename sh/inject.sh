@@ -165,8 +165,11 @@ stage_certs() {
   copy_custom_certs "$CERT_STAGE"
 
   # Checked before the exclusion rules, which may drop any of these on purpose.
+  # A failed stage is removed: --status and --certs would read its gaps as
+  # certificates excluded by a rule.
   if ! dir_has_files "$CERT_STAGE"; then
     log_error "Staging failed: no certificates staged"
+    rm -rf "$CERT_STAGE" 2>/dev/null
     unset _sc_src
     return 1
   fi
@@ -174,6 +177,7 @@ stage_certs() {
     [ -f "$_sc_f" ] || continue
     [ -f "$CERT_STAGE/${_sc_f##*/}" ] && continue
     log_error "Staging failed: ${_sc_f##*/} from ${_sc_f%/*} was not copied (is /data full?)"
+    rm -rf "$CERT_STAGE" 2>/dev/null
     unset _sc_src _sc_f
     return 1
   done
