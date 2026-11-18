@@ -203,6 +203,8 @@ SYSTEM_CERT_DIR="\$R/system/etc/security/cacerts"
 APEX_CONSCRYPT_DIR="\$R/apex/com.android.conscrypt/cacerts"
 TEMP_MOUNT="\$R/mnt/tuc_stage"
 is_mounted() { grep -q " \$1 " "\$TUC_MOUNTS" 2>/dev/null; }
+# Test-only overrides of common.sh functions for scripts run with run_mod.
+[ -f "\$R/hooks.sh" ] && . "\$R/hooks.sh"
 EOF
   TUC_DATA="$TUC_ROOT/data/adb/trust-user-certs"
   TUC_USER="$TUC_ROOT/data/misc/user/0/cacerts-added"

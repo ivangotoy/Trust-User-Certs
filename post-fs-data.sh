@@ -17,6 +17,9 @@ esac
 # $USER_CERT_DIR is NOT created here: a root-owned cacerts-added stops Android
 # (KeyChain runs as uid system) from adding the first user certificate.
 mkdir -p "$DATA_DIR" "$LOG_DIR" "$LOCK_DIR" "$CUSTOM_CERT_DIR" 2>/dev/null
+# Temp files of a run killed between its write and its mv. Nothing else runs
+# this early, so none of them belongs to a live writer.
+rm -f "$FAIL_FILE".tmp.* "$STATS_FILE".tmp.* "$CONFIG_FILE".tmp.* 2>/dev/null
 
 _load_log_level
 log_rotate
@@ -43,7 +46,8 @@ fi
 # Counted up here, cleared in service.sh once the device has actually finished
 # booting. Clearing it right after a successful mount (as v2 did) made the
 # bootloop guard useless.
-write_fail_count $((FAIL_COUNT + 1))
+write_fail_count $((FAIL_COUNT + 1)) ||
+  log_error "Boot attempt could not be counted (fail counter stays at $FAIL_COUNT)"
 # Not blocked (also after a counter reset by hand): no marker may survive.
 rm -f "$BLOCK_MARKER" 2>/dev/null
 write_stats "BLOCKED=0"

@@ -372,7 +372,7 @@ cmd_force_inject() {
     _rc=$?
   fi
   if [ "$_rc" -eq 0 ]; then
-    write_fail_count 0
+    write_fail_count 0 || log_warn "Boot fail counter could not be reset"
     rm -f "$BLOCK_MARKER" 2>/dev/null
     write_stats "BLOCKED=0"
     log_info "Force inject complete"
@@ -405,7 +405,11 @@ cmd_sync() {
 }
 
 cmd_reset_fail() {
-  write_fail_count 0
+  if ! write_fail_count 0; then
+    log_error "Boot fail counter could not be reset from the UI (still $(read_fail_count))"
+    echo "rc=1"
+    return 1
+  fi
   rm -f "$BLOCK_MARKER" 2>/dev/null
   write_stats "BLOCKED=0"
   log_info "Boot fail counter reset from the UI"
@@ -652,9 +656,10 @@ boot_flow() {
     sleep "$SETTLE_SECONDS"
     if guard_blocked; then
       log_warn "Boot completed with the bootloop guard active - fail counter left at $(read_fail_count) until it is reset"
-    else
-      write_fail_count 0
+    elif write_fail_count 0; then
       log_info "Boot completed - fail counter reset"
+    else
+      log_warn "Boot completed, but the fail counter could not be reset (still $(read_fail_count))"
     fi
   else
     log_warn "sys.boot_completed never turned 1 - fail counter left at $(read_fail_count)"
