@@ -17,6 +17,7 @@ OTHER_HASH=6a1c5d49
 # Real tools the stubs forward to, resolved before the stubs go on PATH.
 TUC_REAL_CP=$(command -v cp)
 TUC_REAL_CHMOD=$(command -v chmod)
+TUC_REAL_GREP=$(command -v grep)
 
 make_stubs() {
   mkdir -p "$TUC_STUBS"
@@ -117,6 +118,17 @@ if [ -n "${TUC_CP_FAIL_DEST:-}" ]; then
 fi
 exec "$TUC_REAL_CP" "$@"
 EOF
+  # grep: forwards to the real grep; TUC_GREP_FAIL=<substring> makes a grep
+  # on a file whose name contains it fail with status 2 (a read error).
+  cat >"$TUC_STUBS/grep" <<'EOF'
+#!/bin/sh
+if [ -n "${TUC_GREP_FAIL:-}" ]; then
+  for a in "$@"; do
+    case "$a" in *"$TUC_GREP_FAIL"*) [ -f "$a" ] && exit 2 ;; esac
+  done
+fi
+exec "$TUC_REAL_GREP" "$@"
+EOF
   # chmod: forwards to the real chmod and records each call.
   cat >"$TUC_STUBS/chmod" <<'EOF'
 #!/bin/sh
@@ -141,8 +153,8 @@ new_device() {
   : >"$TUC_MOUNTS"
   : >"$TUC_CALLS"
   TUC_SDK="${1:-33}"
-  export TUC_ROOT TUC_MOUNTS TUC_CALLS TUC_SDK TUC_REAL_CP TUC_REAL_CHMOD
-  unset TUC_CP_FAIL_DEST TUC_CP_FAIL_MODE TUC_CP_FAIL_SRC TUC_MOUNT_FAIL TUC_ZYGOTE_PIDS TUC_BOOT_COMPLETED
+  export TUC_ROOT TUC_MOUNTS TUC_CALLS TUC_SDK TUC_REAL_CP TUC_REAL_CHMOD TUC_REAL_GREP
+  unset TUC_CP_FAIL_DEST TUC_CP_FAIL_MODE TUC_CP_FAIL_SRC TUC_GREP_FAIL TUC_MOUNT_FAIL TUC_ZYGOTE_PIDS TUC_BOOT_COMPLETED
   "$TUC_REAL_CP" "$TUC_REPO/post-fs-data.sh" "$TUC_REPO/service.sh" "$TUC_REPO/module.prop" "$TUC_MOD/"
   "$TUC_REAL_CP" "$TUC_REPO/sh/inject.sh" "$TUC_MOD/sh/"
   cat >"$TUC_MOD/sh/common.sh" <<EOF

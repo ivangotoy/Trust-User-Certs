@@ -478,11 +478,26 @@ write_cfg() {
     return 1
   }
   _wc_tmp="$CONFIG_FILE.tmp.$$"
-  grep -v "^$1=" "$CONFIG_FILE" 2>/dev/null >"$_wc_tmp"
-  printf '%s=%s\n' "$1" "$2" >>"$_wc_tmp"
-  mv -f "$_wc_tmp" "$CONFIG_FILE" 2>/dev/null
+  # grep exits 1 for "no line left", 2 for a read error: only an error (or a
+  # failed write) must stop the old file from being replaced.
+  _wc_ok=1
+  if [ -f "$CONFIG_FILE" ]; then
+    grep -v "^$1=" "$CONFIG_FILE" 2>/dev/null >"$_wc_tmp"
+    [ $? -le 1 ] || _wc_ok=0
+  else
+    : >"$_wc_tmp" || _wc_ok=0
+  fi
+  [ "$_wc_ok" = 1 ] && { printf '%s=%s\n' "$1" "$2" >>"$_wc_tmp" || _wc_ok=0; }
+  [ "$_wc_ok" = 1 ] && { mv -f "$_wc_tmp" "$CONFIG_FILE" 2>/dev/null || _wc_ok=0; }
+  if [ "$_wc_ok" != 1 ]; then
+    rm -f "$_wc_tmp" 2>/dev/null
+    lock_release "$CONFIG_LOCK"
+    log_warn "config file could not be rewritten, $1 not written"
+    unset _wc_tmp _wc_ok
+    return 1
+  fi
   lock_release "$CONFIG_LOCK"
-  unset _wc_tmp
+  unset _wc_tmp _wc_ok
   return 0
 }
 
@@ -509,28 +524,52 @@ write_stats() {
     return 1
   }
   _ws_tmp="$STATS_FILE.tmp.$$"
+  # Any failed step (a full /data, a read error) leaves the old file as it
+  # is: it must never be replaced by just the new keys - the bootloop
+  # guard's BLOCKED lives here. grep exits 1 for "no line left", 2 for errors.
+  _ws_ok=1
   if [ -f "$STATS_FILE" ]; then
-    cp -f "$STATS_FILE" "$_ws_tmp" 2>/dev/null || : >"$_ws_tmp"
+    cp -f "$STATS_FILE" "$_ws_tmp" 2>/dev/null || _ws_ok=0
   else
-    : >"$_ws_tmp"
+    : >"$_ws_tmp" || _ws_ok=0
   fi
   for _ws_pair in "$@"; do
+    [ "$_ws_ok" = 1 ] || break
     _ws_key="${_ws_pair%%=*}"
     grep -v "^$_ws_key=" "$_ws_tmp" >"$_ws_tmp.n" 2>/dev/null
-    mv -f "$_ws_tmp.n" "$_ws_tmp" 2>/dev/null
-    printf '%s\n' "$_ws_pair" >>"$_ws_tmp"
+    [ $? -le 1 ] || { _ws_ok=0; break; }
+    mv -f "$_ws_tmp.n" "$_ws_tmp" 2>/dev/null || { _ws_ok=0; break; }
+    printf '%s\n' "$_ws_pair" >>"$_ws_tmp" || _ws_ok=0
   done
-  mv -f "$_ws_tmp" "$STATS_FILE" 2>/dev/null
+  [ "$_ws_ok" = 1 ] && { mv -f "$_ws_tmp" "$STATS_FILE" 2>/dev/null || _ws_ok=0; }
+  if [ "$_ws_ok" != 1 ]; then
+    rm -f "$_ws_tmp" "$_ws_tmp.n" 2>/dev/null
+    lock_release "$STATS_LOCK"
+    log_warn "stats file could not be rewritten, dropping: $*"
+    unset _ws_tmp _ws_pair _ws_key _ws_ok
+    return 1
+  fi
   lock_release "$STATS_LOCK"
-  unset _ws_tmp _ws_pair _ws_key
+  unset _ws_tmp _ws_pair _ws_key _ws_ok
   return 0
 }
 
 del_stat() {
   lock_acquire "$STATS_LOCK" 5 || return 1
   _ds_tmp="$STATS_FILE.tmp.$$"
+  [ -f "$STATS_FILE" ] || {
+    lock_release "$STATS_LOCK"
+    unset _ds_tmp
+    return 0
+  }
   grep -v "^$1=" "$STATS_FILE" 2>/dev/null >"$_ds_tmp"
-  mv -f "$_ds_tmp" "$STATS_FILE" 2>/dev/null
+  if [ $? -gt 1 ] || ! mv -f "$_ds_tmp" "$STATS_FILE" 2>/dev/null; then
+    rm -f "$_ds_tmp" 2>/dev/null
+    lock_release "$STATS_LOCK"
+    log_warn "stats file could not be rewritten, $1 not deleted"
+    unset _ds_tmp
+    return 1
+  fi
   lock_release "$STATS_LOCK"
   unset _ds_tmp
   return 0

@@ -38,7 +38,12 @@ test_failed_base_snapshot_mounts_nothing() {
     run_mod post-fs-data.sh
     assert_eq "$(cat "$TUC_MOUNTS")" "" "$dest: no tmpfs over the store"
     assert_eq "$(count "$TUC_SYS")" 3 "$dest: stock store visible"
-    assert_eq "$(stat_of INJECT_OK)" 0 "$dest: INJECT_OK"
+    if [ "$dest" = base_certs ]; then
+      assert_eq "$(stat_of INJECT_OK)" 0 "$dest: INJECT_OK"
+    else
+      # With every copy failing, the stats cannot be updated either.
+      [ "$(stat_of INJECT_OK)" != 1 ] || fail "$dest: INJECT_OK=1"
+    fi
   done
 }
 
