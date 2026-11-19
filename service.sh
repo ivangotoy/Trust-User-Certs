@@ -358,6 +358,13 @@ cmd_watch_stop() {
 # ── UI commands ───────────────────────────────────────────────────────────────
 cmd_force_inject() {
   log_sep "Force inject (from UI)"
+  # Serialised with Live Sync: both rebuild the stage, and one run's pass that
+  # removes unstaged certs from the store would hit the other's half-built one.
+  if ! lock_acquire "$SYNC_LOCK" 20; then
+    log_error "Force inject skipped - a sync is still running"
+    echo "rc=1"
+    return 1
+  fi
   _store=$(trust_store_dir)
   if is_mounted "$_store"; then
     sync_store
@@ -371,6 +378,7 @@ cmd_force_inject() {
     inject_full
     _rc=$?
   fi
+  lock_release "$SYNC_LOCK"
   if [ "$_rc" -eq 0 ]; then
     write_fail_count 0 || log_warn "Boot fail counter could not be reset"
     rm -f "$BLOCK_MARKER" 2>/dev/null
