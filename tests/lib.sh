@@ -36,22 +36,24 @@ printf '%s\n' "${TUC_ENFORCE:-Enforcing}"
 EOF
   # mount: records the call and keeps $TUC_MOUNTS (a /proc/mounts look-alike).
   # A tmpfs mount empties the target (its old files move aside); a bind
-  # mount makes the target show the source's files.
+  # mount makes the target show the source's files. TUC_MOUNT_FAIL=all fails
+  # every mount, =bind every bind, =mode every mount with -o mode=...
   cat >"$TUC_STUBS/mount" <<'EOF'
 #!/bin/sh
 printf 'mount %s\n' "$*" >>"$TUC_CALLS"
 [ "${TUC_MOUNT_FAIL:-}" = all ] && exit 1
-src="" dst="" kind=""
+src="" dst="" kind="" opt=""
 while [ $# -gt 0 ]; do
   case "$1" in
     -t) kind="$2"; shift 2 ;;
-    -o) [ "$2" = bind ] && kind=bind; shift 2 ;;
+    -o) case "$2" in bind) kind=bind ;; mode=*) opt=mode ;; esac; shift 2 ;;
     --bind) kind=bind; shift ;;
     *) if [ -z "$src" ]; then src="$1"; else dst="$1"; fi; shift ;;
   esac
 done
 [ -d "$dst" ] || exit 1
 [ "${TUC_MOUNT_FAIL:-}" = bind ] && [ "$kind" = bind ] && exit 1
+[ "${TUC_MOUNT_FAIL:-}" = mode ] && [ "$opt" = mode ] && exit 1
 n=$(wc -l <"$TUC_MOUNTS" | tr -d ' ')
 mkdir -p "$TUC_ROOT/.under/$n"
 for f in "$dst"/* "$dst"/.[!.]*; do [ -e "$f" ] && mv "$f" "$TUC_ROOT/.under/$n/"; done

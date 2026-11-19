@@ -378,6 +378,14 @@ verify_inject() {
   return 1
 }
 
+# mount_tmpfs <dir> - a tmpfs that is 0755 from the start: the default 1777
+# would let any uid add a file until fix_permissions runs. A mount that
+# refuses the option gets the plain call.
+mount_tmpfs() {
+  mount -t tmpfs -o mode=0755 tmpfs "$1" 2>/dev/null ||
+    mount -t tmpfs tmpfs "$1" 2>/dev/null
+}
+
 # ── Android <= 13: tmpfs over /system/etc/security/cacerts ────────────────────
 inject_low() {
   _il_ctx=$(read_selinux_context "$SYSTEM_CERT_DIR")
@@ -390,7 +398,7 @@ inject_low() {
 
   _il_new=0
   if ! is_mounted "$SYSTEM_CERT_DIR"; then
-    if ! mount -t tmpfs tmpfs "$SYSTEM_CERT_DIR" 2>/dev/null; then
+    if ! mount_tmpfs "$SYSTEM_CERT_DIR"; then
       log_error "Failed to mount tmpfs on $SYSTEM_CERT_DIR"
       write_stats "INJECT_OK=0"
       unset _il_ctx _il_new
@@ -480,7 +488,7 @@ inject_high() {
   unset _ih_i
   rm -rf "$TEMP_MOUNT" 2>/dev/null
   mkdir -p "$TEMP_MOUNT" 2>/dev/null
-  if ! mount -t tmpfs tmpfs "$TEMP_MOUNT" 2>/dev/null; then
+  if ! mount_tmpfs "$TEMP_MOUNT"; then
     log_error "Failed to mount tmpfs on $TEMP_MOUNT - the trust store is left as it is"
     write_stats "INJECT_OK=0"
     unset _ih_ver _ih_cand

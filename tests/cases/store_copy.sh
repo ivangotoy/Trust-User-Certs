@@ -15,7 +15,7 @@ test_short_copy_into_a_fresh_tmpfs_unmounts_it() {
     TUC_CP_FAIL_DEST=/system/etc/security/cacerts TUC_CP_FAIL_MODE=$mode
     export TUC_CP_FAIL_DEST TUC_CP_FAIL_MODE
     run_mod post-fs-data.sh
-    assert_grep "mount -t tmpfs tmpfs $TUC_SYS" "$TUC_CALLS" "$mode: tmpfs was mounted"
+    assert_grep "mount -t tmpfs .*tmpfs $TUC_SYS" "$TUC_CALLS" "$mode: tmpfs was mounted"
     assert_eq "$(cat "$TUC_MOUNTS")" "" "$mode: tmpfs removed again"
     stock_intact "$TUC_SYS" || fail "$mode: stock store not intact"
     assert_eq "$(stat_of INJECT_OK)" 0 "$mode: INJECT_OK"

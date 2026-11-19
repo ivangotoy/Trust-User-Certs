@@ -16,7 +16,7 @@ test_short_new_set_keeps_the_old_overlay() {
   TUC_CP_FAIL_DEST=mnt/tuc_stage TUC_CP_FAIL_MODE=truncate
   export TUC_CP_FAIL_DEST TUC_CP_FAIL_MODE
   in_mod 'inject_high' && fail "inject_high reported success"
-  assert_grep "mount -t tmpfs tmpfs $TUC_ROOT/mnt/tuc_stage" "$TUC_CALLS" "new set was built"
+  assert_grep "mount -t tmpfs .*tmpfs $TUC_ROOT/mnt/tuc_stage" "$TUC_CALLS" "new set was built"
   assert_no_grep "umount $TUC_APEX" "$TUC_CALLS" "old overlay torn down"
   assert_grep "bind $TUC_APEX " "$TUC_MOUNTS" "old overlay still mounted"
   assert_file "$TUC_APEX/$TEST_HASH.0" "user cert still trusted"
@@ -26,7 +26,7 @@ test_short_new_set_keeps_the_old_overlay() {
 test_new_set_is_ready_before_the_swap() {
   active_overlay
   in_mod 'inject_high' || fail "inject_high failed"
-  tmpfs_at=$(grep -n "mount -t tmpfs tmpfs $TUC_ROOT/mnt/tuc_stage" "$TUC_CALLS" | head -n 1 | cut -d: -f1)
+  tmpfs_at=$(grep -n "mount -t tmpfs .*tmpfs $TUC_ROOT/mnt/tuc_stage" "$TUC_CALLS" | head -n 1 | cut -d: -f1)
   umount_at=$(grep -n "^umount $TUC_APEX" "$TUC_CALLS" | head -n 1 | cut -d: -f1)
   [ -n "$tmpfs_at" ] && [ -n "$umount_at" ] && [ "$tmpfs_at" -lt "$umount_at" ] ||
     fail "old overlay released before the new set existed (tmpfs line $tmpfs_at, umount line $umount_at)"
