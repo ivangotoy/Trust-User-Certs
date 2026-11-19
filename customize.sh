@@ -83,7 +83,7 @@ EOF
 EOF
 
   [ -f "$EXCLUDE_SUBJ_FILE" ] || cat >"$EXCLUDE_SUBJ_FILE" <<'EOF'
-# One substring per line, matched against the certificate body.
+# One grep basic regex per line (plain text matches as a substring), searched in the certificate body.
 # Only user/custom certificates are scanned. Lines starting with # are ignored.
 Guard Personal Intermediate
 EOF
