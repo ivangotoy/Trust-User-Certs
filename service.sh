@@ -544,7 +544,12 @@ cmd_status() {
   printf 'MOUNTED=%s\n' "$(is_mounted "$_store" && echo 1 || echo 0)"
   printf 'STORE_CERTS=%s\n' "$(count_files "$_store")"
   printf 'BASE_CERTS=%s\n' "$(count_files "$BASE_CERT_DIR")"
-  printf 'STAGE_CERTS=%s\n' "$(count_files "$CERT_STAGE")"
+  # Empty while a live sync owns the lock: the stage is being rebuilt. Only
+  # the owner is checked; a dead owner's lock is left to the lock code.
+  _stage_n=$(count_files "$CERT_STAGE")
+  _sp=$(read_pid_file "$SYNC_LOCK/pid")
+  [ "$_sp" -gt 0 ] && lock_owner_alive "$_sp" && _stage_n=""
+  printf 'STAGE_CERTS=%s\n' "$_stage_n"
   printf 'USER_CERTS=%s\n' "$_users"
   printf 'USER_TRUSTED=%s\n' "$_trusted"
   printf 'USER_EXCLUDED=%s\n' "$_excluded"
