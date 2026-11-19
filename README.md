@@ -281,7 +281,7 @@ The root manager did not provide a working `ksu` JavaScript bridge. Open the mod
 
 ## Uninstalling
 
-Removing the module takes effect at the next reboot: the root manager removes it early in that boot (its post-fs-data stage, before the module boot scripts run), so the overlay is never mounted again and apps see the stock trust store. In a late-load root mode the system is already running at that point; the overlay was not mounted in that session either. `uninstall.sh` runs at that point; it stops anything left of Live Sync, unmounts any leftover overlay (a cleanup, not a live revert) and deletes `/data/adb/trust-user-certs`, **including any custom certificates**. Your user certificates in Android Settings are untouched.
+Removing the module takes effect at the next reboot: the root manager removes it early in that boot (its post-fs-data stage, before the module boot scripts run), so the overlay is never mounted again and apps see the stock trust store. In a late-load root mode the system is already running at that point, and a late load repeated in the same session can find the overlay still mounted. `uninstall.sh` runs at that point; it stops anything left of Live Sync, unmounts any overlay still there and deletes `/data/adb/trust-user-certs`, **including any custom certificates**. Your user certificates in Android Settings are untouched.
 
 ---
 
