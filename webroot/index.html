@@ -998,7 +998,8 @@ async function doAction(type) {
       }
     } else if (type === 'reset') {
       out = parseKV(await svc('--reset-fail', 20000));
-      showToast('Fail counter reset', 'ok');
+      showToast(out.rc === '0' ? 'Fail counter reset' : 'Reset failed - check the log',
+                out.rc === '0' ? 'ok' : 'err');
     }
   } catch (e) {
     showToast('Error: ' + (e.message || e), 'err');
