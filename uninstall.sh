@@ -1,7 +1,9 @@
 #!/system/bin/sh
 # uninstall.sh - runs when the module is removed via Magisk/KSU/APatch. The
-# root manager does that at the next boot, early (post-fs-data stage), before
-# zygote and apps start; the module's own boot scripts no longer run then.
+# root manager runs it at the next boot, in its post-fs-data stage, before the
+# module boot scripts of that boot - so the module's own scripts no longer run
+# then. In a late-load root mode that stage comes with the system already up;
+# a manager removing all modules at once may also run it right away.
 
 DATA_DIR="/data/adb/trust-user-certs"
 

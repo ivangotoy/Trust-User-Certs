@@ -375,7 +375,7 @@ su -c 'sh /data/adb/modules/trust-user-certs/service.sh --reset-fail'</pre>
 <!-- 11 -->
 <div class="sec-title" id="uninstall">11 · uninstall</div>
 <div class="box">
-  <p>Removing the module in your root manager takes effect at the <strong>next reboot</strong>: the manager removes it early in that boot, before apps start, so the overlay is never mounted again and the stock trust store is back. <code>uninstall.sh</code> runs at that point: it stops anything left of Live Sync and deletes <code>/data/adb/trust-user-certs</code>.</p>
+  <p>Removing the module in your root manager takes effect at the <strong>next reboot</strong>: the manager removes it early in that boot (before the module boot scripts run), so the overlay is never mounted again and the stock trust store is back. In a late-load root mode the system is already running at that point. <code>uninstall.sh</code> runs at that point: it stops anything left of Live Sync and deletes <code>/data/adb/trust-user-certs</code>.</p>
   <div class="note warn">
     That includes your <strong>custom certificates</strong>. Back them up first.
   </div>
