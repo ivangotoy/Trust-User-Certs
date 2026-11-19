@@ -28,8 +28,9 @@ if tuc_is "$PID" "inotifyd" && tuc_is "$PID" "/data/misc/user/0"; then
   kill "$PID" 2>/dev/null
 fi
 
-# Cleanup only, not a live revert: at the boot that removes the module nothing
-# has mounted the overlay. Kept for a manager that runs this script at once.
+# Unmount any overlay still there. At a normal boot that removes the module
+# nothing has mounted it yet, but a late load repeated in the same session or
+# a manager that runs this script at once can find it mounted.
 umount /apex/com.android.conscrypt/cacerts 2>/dev/null
 umount /system/etc/security/cacerts 2>/dev/null
 
