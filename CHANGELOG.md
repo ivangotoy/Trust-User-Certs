@@ -15,6 +15,18 @@
 - Exclusion rule files saved on Windows (CRLF line endings) work.
 - The installer shows the real version instead of "v4".
 
+**Fork (Forgejo builds)**
+- The bootloop guard stays active after a blocked boot until Reset Fail Counter or Force Inject lifts it; Live Sync and polling do not inject meanwhile. Reset Fail Counter reports a failure when the guard stays active, and the WebUI shows it as an error.
+- Certificates in `/data/local/tmp/cert` are no longer imported at install or boot; a warning is logged instead.
+- A short, empty or truncated certificate copy never replaces the live trust store. On Android 14+ the new set is built before the old overlay is released.
+- Force Inject waits up to 20 s for a running Live Sync instead of running at the same time, and the deferred inject at boot on Android 14+ takes the same lock (it still injects if the lock stays busy).
+- The temporary trust store mounts are created with mode 0755.
+- `exclude_hashes` lines other than eight lowercase hex digits are ignored; `exclude_subjects` lines are grep basic regular expressions.
+- `--status`, `--certs` and the WebUI count a certificate as excluded only when it is not in the store and a rule matches it; one added since the last sync shows as not trusted. `STAGE_CERTS` is empty while a sync runs.
+- An empty certificate directory no longer gets a stray file named `*`.
+- The boot fail counter, stats and config are written via a temporary file, so a failed write keeps the old value.
+- Module updates come from this fork's releases on Forgejo.
+
 ---
 
 ## v5.1
