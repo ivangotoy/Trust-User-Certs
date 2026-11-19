@@ -47,3 +47,18 @@ test_force_inject_clears_the_marker() {
   assert_no_file "$TUC_DATA/blocked" "marker removed"
   assert_eq "$(cat "$TUC_DATA/boot_fail_count")" 0 "counter cleared"
 }
+
+test_reset_that_leaves_the_guard_active_is_reported() {
+  new_device 33
+  echo 3 >"$TUC_DATA/boot_fail_count"
+  run_mod post-fs-data.sh
+  assert_eq "$(stat_of BLOCKED)" 1 "precondition: blocked"
+  TUC_CP_FAIL_DEST=stats.tmp
+  export TUC_CP_FAIL_DEST
+  out=$(run_mod service.sh --reset-fail)
+  unset TUC_CP_FAIL_DEST
+  assert_eq "$(stat_of BLOCKED)" 1 "precondition: stats write dropped"
+  assert_eq "$(run_mod service.sh --status | sed -n 's/^BLOCKED=//p')" 1 "status still blocked"
+  assert_eq "$out" "rc=1" "reset rc"
+  assert_grep "guard is still active" "$TUC_LOG" "failure logged"
+}

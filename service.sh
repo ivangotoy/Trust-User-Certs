@@ -412,6 +412,11 @@ cmd_reset_fail() {
   fi
   rm -f "$BLOCK_MARKER" 2>/dev/null
   write_stats "BLOCKED=0"
+  if guard_blocked; then
+    log_error "Boot fail counter reset, but the bootloop guard is still active (marker or BLOCKED stat could not be cleared)"
+    echo "rc=1"
+    return 1
+  fi
   log_info "Boot fail counter reset from the UI"
   echo "rc=0"
 }
