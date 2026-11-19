@@ -21,7 +21,7 @@
 - A short, empty or truncated certificate copy never replaces the live trust store. On Android 14+ the new set is built before the old overlay is released.
 - Force Inject waits up to 20 s for a running Live Sync instead of running at the same time, and the deferred inject at boot on Android 14+ takes the same lock (it still injects if the lock stays busy).
 - The temporary trust store mounts are created with mode 0755.
-- `exclude_hashes` lines other than eight lowercase hex digits are ignored; `exclude_subjects` lines are grep basic regular expressions.
+- `exclude_hashes` lines other than eight lowercase hex digits are ignored.
 - `--status`, `--certs` and the WebUI count a certificate as excluded only when it is not in the store and a rule matches it; one added since the last sync shows as not trusted. `STAGE_CERTS` is empty while a sync runs.
 - An empty certificate directory no longer gets a stray file named `*`.
 - The boot fail counter, stats and config are written via a temporary file, so a failed write keeps the old value.
