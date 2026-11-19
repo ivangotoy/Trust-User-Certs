@@ -188,8 +188,8 @@ rule_subject_match() {
 
 # cert_excluded <file> - true if a rule drops this user/custom certificate:
 # an exclude_hashes line names the part of its file name before the dot, or
-# an exclude_subjects pattern is in it. The same rules the staging applies,
-# for when no stage is there to look at.
+# an exclude_subjects pattern is in it. The same rules the staging applies;
+# --status and --certs use this, not the stage.
 cert_excluded() {
   _ce_h="${1##*/}"
   _ce_h="${_ce_h%%.*}"
@@ -264,8 +264,8 @@ stage_certs() {
   copy_custom_certs "$CERT_STAGE"
 
   # Checked before the exclusion rules, which may drop any of these on purpose.
-  # A failed stage is removed: --status and --certs would read its gaps as
-  # certificates excluded by a rule.
+  # A failed stage is removed, so a half-built set is never taken for the
+  # real one (STAGE_CERTS in --status counts it).
   if ! dir_has_files "$CERT_STAGE"; then
     log_error "Staging failed: no certificates staged"
     rm -rf "$CERT_STAGE" 2>/dev/null

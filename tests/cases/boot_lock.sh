@@ -6,7 +6,8 @@ test_boot_inject_holds_the_sync_lock() {
   new_device 34
   user_cert test-ca.pem "$TEST_HASH.0"
   run_mod post-fs-data.sh
-  # Runs inside inject_high, after the new set is bound: a competing sync
+  # Runs inside inject_high, after the old overlay is released and before
+  # the new set is bound: a competing sync
   # (guarded against running the hook itself) must find the lock taken.
   cat >"$TUC_ROOT/hooks.sh" <<'H'
 apply_selinux_context() {
