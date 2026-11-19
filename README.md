@@ -230,7 +230,7 @@ su -c 'sh /data/adb/modules/trust-user-certs/service.sh --watch-start'  # start 
 su -c 'sh /data/adb/modules/trust-user-certs/service.sh --watch-stop'
 su -c 'sh /data/adb/modules/trust-user-certs/service.sh --config LIVE_SYNC 1'  # also starts/stops the watcher
 su -c 'sh /data/adb/modules/trust-user-certs/service.sh --config LOG_LEVEL 2'
-su -c 'sh /data/adb/modules/trust-user-certs/service.sh --reset-fail'  # lift the bootloop guard (rc=1 if the counter cannot be written)
+su -c 'sh /data/adb/modules/trust-user-certs/service.sh --reset-fail'  # lift the bootloop guard (rc=1 if the counter cannot be written or the guard stays active)
 ```
 
 Quick health check:
