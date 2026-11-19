@@ -88,8 +88,12 @@ EOF
 [ "$1" = zygote ] && [ -n "${TUC_ZYGOTE_PIDS:-}" ] && { printf '%s\n' $TUC_ZYGOTE_PIDS; exit 0; }
 exit 1
 EOF
-  # sleep returns at once: waits and settle delays cost nothing.
-  printf '#!/bin/sh\nexit 0\n' >"$TUC_STUBS/sleep"
+  # sleep returns at once: waits and settle delays cost nothing. Each call is
+  # logged once a fake device exists.
+  printf '#!/bin/sh\n[ -n "${TUC_CALLS:-}" ] && printf "sleep %%s\\n" "$*" >>"$TUC_CALLS"\nexit 0\n' >"$TUC_STUBS/sleep"
+  # mksh has a builtin sleep that no PATH entry can shadow; a function can.
+  # Sourced by tests/run.sh and by the fake common.sh of every device.
+  printf 'sleep() { "%s/sleep" "$@"; }\n' "$TUC_STUBS" >"$TUC_WORK/overrides.sh"
   # cp: forwards to the real cp. TUC_CP_FAIL_DEST=<substring> makes a copy whose
   # destination (last argument) contains it fail - after copying only the
   # first source when TUC_CP_FAIL_MODE=partial (a full disk), or after creating
@@ -203,6 +207,7 @@ SYSTEM_CERT_DIR="\$R/system/etc/security/cacerts"
 APEX_CONSCRYPT_DIR="\$R/apex/com.android.conscrypt/cacerts"
 TEMP_MOUNT="\$R/mnt/tuc_stage"
 is_mounted() { grep -q " \$1 " "\$TUC_MOUNTS" 2>/dev/null; }
+. "$TUC_WORK/overrides.sh"
 # Test-only overrides of common.sh functions for scripts run with run_mod.
 [ -f "\$R/hooks.sh" ] && . "\$R/hooks.sh"
 EOF

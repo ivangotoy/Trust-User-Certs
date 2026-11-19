@@ -81,11 +81,20 @@ fi
 make_stubs
 PATH="$TUC_STUBS:$PATH"
 export PATH
+. "$TUC_WORK/overrides.sh"
 
 # Safety: every device tool must resolve to a stub before anything runs.
+# mksh predefines alias nohup='nohup ', which looks the name up again on PATH;
+# its builtin sleep is replaced by the overrides.sh function (as on every
+# fake device), which calls the stub.
 _safe=1
 for t in mount umount nsenter chcon chown restorecon getprop getenforce pgrep pkill setsid nohup sleep cp chmod; do
-  case "$(command -v "$t")" in
+  _r=$(command -v "$t")
+  case "$_r" in
+    "alias $t='$t '") _r=$(unalias "$t" 2>/dev/null; command -v "$t") ;;
+    sleep) case "$(type sleep)" in *function*) _r="$TUC_STUBS/sleep" ;; esac ;;
+  esac
+  case "$_r" in
     "$TUC_STUBS/$t") ;;
     *) _safe=0; ko "stub $t does not shadow $(command -v "$t")" ;;
   esac
