@@ -311,7 +311,7 @@ su -c 'chmod 644 /data/adb/trust-user-certs/certs/87bc3517.0'</pre>
   <h3>Actions</h3>
   <div class="tbl"><table>
     <tr><th>button</th><th>what it does</th></tr>
-    <tr><td>Force Inject</td><td>rebuilds the merged set and refreshes the overlay; rebuilds the overlay from scratch if verification fails</td></tr>
+    <tr><td>Force Inject</td><td>rebuilds the merged set and refreshes the overlay; rebuilds the overlay from scratch if verification fails; waits for a running Live Sync to finish first</td></tr>
     <tr><td>Force Sync</td><td>one Live Sync pass (skipped while BLOCKED); also restarts the watcher if Live Sync is on but the watcher is gone</td></tr>
     <tr><td>Reset Fail Counter</td><td>clears the boot-loop guard</td></tr>
   </table></div>

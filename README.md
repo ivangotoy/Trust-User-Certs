@@ -224,7 +224,7 @@ su -c 'sh /data/adb/modules/trust-user-certs/service.sh --status'  # key=value s
 su -c 'sh /data/adb/modules/trust-user-certs/service.sh --certs'  # user/custom certificates, base64 encoded
 su -c 'sh /data/adb/modules/trust-user-certs/service.sh --log 200'  # tail of the service log
 su -c 'sh /data/adb/modules/trust-user-certs/service.sh --clear-log'
-su -c 'sh /data/adb/modules/trust-user-certs/service.sh --force-inject'  # refresh the overlay, rebuilding it if verification fails
+su -c 'sh /data/adb/modules/trust-user-certs/service.sh --force-inject'  # refresh the overlay, rebuilding it if verification fails (waits up to 20 s for a running sync, else rc=1)
 su -c 'sh /data/adb/modules/trust-user-certs/service.sh --sync'  # one live sync pass (restarts a dead watcher; skipped while BLOCKED)
 su -c 'sh /data/adb/modules/trust-user-certs/service.sh --watch-start'  # start the Live Sync watcher
 su -c 'sh /data/adb/modules/trust-user-certs/service.sh --watch-stop'
