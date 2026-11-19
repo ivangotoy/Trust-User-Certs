@@ -709,13 +709,13 @@ fix_permissions() {
     chown root:shell "$_fp_dir" 2>/dev/null
     chmod 644 "$_fp_dir"/* 2>/dev/null
     chmod 755 "$_fp_dir" 2>/dev/null
-    touch -t 197001010800 "$_fp_dir"/* 2>/dev/null
+    touch -c -t 197001010800 "$_fp_dir"/* 2>/dev/null
     touch -t 197001010800 "$_fp_dir" 2>/dev/null
   else
     chown -R root:root "$_fp_dir" 2>/dev/null
     chmod 644 "$_fp_dir"/* 2>/dev/null
     chmod 755 "$_fp_dir" 2>/dev/null
-    touch -t 200901010800 "$_fp_dir"/* 2>/dev/null
+    touch -c -t 200901010800 "$_fp_dir"/* 2>/dev/null
     touch -t 200901010800 "$_fp_dir" 2>/dev/null
   fi
   unset _fp_dir

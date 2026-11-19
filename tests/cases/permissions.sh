@@ -12,3 +12,12 @@ test_store_dir_never_loses_search_permission() {
   assert_eq "$(stat -c %a "$TUC_APEX/$TEST_HASH.0")" 644 "cert file mode"
   assert_eq "$(stat -c %a "$TUC_APEX")" 755 "store dir mode"
 }
+
+test_permissions_on_an_empty_dir_create_no_file() {
+  for sdk in 33 34; do
+    new_device "$sdk"
+    mkdir -p "$TUC_ROOT/empty"
+    in_mod "fix_permissions \"$TUC_ROOT/empty\""
+    assert_eq "$(ls -A "$TUC_ROOT/empty")" "" "SDK $sdk: files in the empty dir"
+  done
+}
