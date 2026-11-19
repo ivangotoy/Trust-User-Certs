@@ -663,11 +663,21 @@ boot_flow() {
     if guard_blocked; then
       log_error "Deferred inject skipped - bootloop guard is active"
     else
+      # Serialised with a sync or Force Inject started meanwhile (a root CLI
+      # call). Never skipped for the lock: still held after the wait, the
+      # inject runs without it.
+      _bl=0
+      if lock_acquire "$SYNC_LOCK" 20; then
+        _bl=1
+      else
+        log_warn "Sync lock still held after 20 s - deferred inject runs without it"
+      fi
       if inject_high; then
         log_info "Deferred inject complete"
       else
         log_error "Deferred inject failed"
       fi
+      [ "$_bl" = 1 ] && [ "$(read_pid_file "$SYNC_LOCK/pid")" = "$$" ] && lock_release "$SYNC_LOCK"
     fi
     del_stat DEFERRED
   fi

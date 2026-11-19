@@ -134,7 +134,7 @@ Only creations, completed writes, deletions and renames count; reading the certi
 Change detected (2 event(s), first: n cacerts-added/87bc3517.0)
 ```
 
-Every 60 seconds the watcher checks that `inotifyd` is still alive and restarts it if not, followed by one resync. After more than 5 failures in 10 minutes - or when `inotifyd` does not exist - it switches to polling every 30 s. A sync lock serialises the watcher against a sync triggered from the UI; it stores its owner PID, so a process that dies mid-sync cannot leave Live Sync stuck.
+Every 60 seconds the watcher checks that `inotifyd` is still alive and restarts it if not, followed by one resync. After more than 5 failures in 10 minutes - or when `inotifyd` does not exist - it switches to polling every 30 s. A sync lock serialises the watcher, syncs and Force Inject from the UI, and the deferred inject at boot on Android 14+ (which waits up to 20 s for it and then injects anyway); it stores its owner PID, so a process that dies mid-sync cannot leave Live Sync stuck.
 
 PIDs from a file are never trusted on their own: a process counts as the watcher only if it is alive, not a zombie, and its command line contains the module's path. Runtime files are cleared at every boot.
 
