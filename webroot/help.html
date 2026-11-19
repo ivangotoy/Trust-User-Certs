@@ -285,7 +285,7 @@ su -c 'chmod 644 /data/adb/trust-user-certs/certs/87bc3517.0'</pre>
     <tr><td>exclude_hashes</td><td>a subject hash - the file name without <code>.0</code>: eight lowercase hex digits, other lines are ignored</td></tr>
     <tr><td>exclude_subjects</td><td>a grep basic regular expression (plain text matches as a substring; escape <code>.</code> <code>*</code> <code>[</code> <code>\</code> to match them literally) searched in the certificate body, PEM files decoded first (user and custom certificates only)</td></tr>
   </table></div>
-  <p>Both live in <code>/data/adb/trust-user-certs/</code>; lines starting with <code>#</code> are comments. They ship with a rule for AdGuard's personal intermediate CA, which conflicts when it sits in the system store. An excluded certificate is labelled <em>excluded by rule</em> in the list and does not count as a failure.</p>
+  <p>Both live in <code>/data/adb/trust-user-certs/</code>; lines starting with <code>#</code> are comments. They ship with a rule for AdGuard's personal intermediate CA, which conflicts when it sits in the system store. A certificate that is not in the store and matches a current rule is labelled <em>excluded by rule</em> in the list and does not count as a failure.</p>
 </div>
 
 <!-- 8 -->

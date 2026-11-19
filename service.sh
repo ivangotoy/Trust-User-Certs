@@ -477,15 +477,11 @@ cmd_config() {
   return 0
 }
 
-# cert_is_excluded <file> <store> - dropped by a rule: missing from the stage
-# when there is one, else (a failed sync removed it) not in the store and
-# matched by the rules themselves.
+# cert_is_excluded <file> <store> - dropped by a rule: not in the store and
+# matched by the rules themselves. The stage is not read: a sync may be
+# rebuilding it, and it is older than a certificate added since the last sync.
 cert_is_excluded() {
-  if [ -d "$CERT_STAGE" ]; then
-    [ ! -f "$CERT_STAGE/${1##*/}" ]
-  else
-    [ ! -f "$2/${1##*/}" ] && cert_excluded "$1"
-  fi
+  [ ! -f "$2/${1##*/}" ] && cert_excluded "$1"
 }
 
 cmd_status() {
