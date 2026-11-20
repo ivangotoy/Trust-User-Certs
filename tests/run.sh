@@ -85,19 +85,23 @@ if [ "$ASH_ONLY" != 1 ] && command -v bash >/dev/null 2>&1 && command -v python3
   {
     echo 'set -euo pipefail'
     echo 'API=https://forge.invalid/api/v1/repos/example/mod RELEASE_ID=7 PUBLISHED=0 SRC_SHA=0123456789abcdef0123456789abcdef01234567'
+    echo 'DRAFT_REQUESTED=0 TAG=v9.9-ci7 REQ={}'
     echo 'AUTH_DIR=$(mktemp -d) AUTH_H=$AUTH_DIR/header; : > "$AUTH_H"'
     sed -n '/^log() {/p; /^die() {/p; /^jget() {/,/^print(d)/p; /^api() {/,/^}/p; /^cleanup() {/,/^}/p' "$TUC_REPO/.forgejo/module-ci.sh"
     echo 'trap cleanup EXIT'
-    echo 'if [ "$1" = publish ]; then'
+    echo 'if [ "$1" = create ]; then RELEASE_ID=""'
+    sed -n '/^DRAFT_REQUESTED=1$/,/^RELEASE_ID="\$(api POST \/releases /p' "$TUC_REPO/.forgejo/module-ci.sh"
+    echo 'elif [ "$1" = publish ]; then'
     sed -n '/^REQ="\$(python3 -I -c .import json,sys;print(json.dumps({"draft":False/,/^PUBLISHED=1$/p' "$TUC_REPO/.forgejo/module-ci.sh"
     echo 'else die "upload failed"; fi'
   } > "$RW/rel.sh"
-  # fake curl: logs "METHOD URL"; PATCH exits $PATCH_RC; GET of the release answers draft=$DRAFT or fails (DRAFT=fail)
+  # fake curl: logs "METHOD URL"; POST exits $POST_RC, PATCH $PATCH_RC; GET of the release answers draft=$DRAFT or fails (DRAFT=fail)
   cat > "$RW/bin/curl" <<EOF
 #!/bin/sh
 m=GET; p=; for a in "\$@"; do [ "\$p" = -X ] && m=\$a; p=\$a; u=\$a; done
 echo "\$m \$u" >> "$RW/calls"
 case "\$m" in
+  POST) exit "\${POST_RC:-0}" ;;
   PATCH) exit "\${PATCH_RC:-0}" ;;
   GET) [ "\$DRAFT" = fail ] && exit 22; printf '{"id": 7, "draft": %s}' "\$DRAFT" ;;
 esac
@@ -123,6 +127,11 @@ EOF
     if [ "$rc" -eq 0 ] && ! grep -q '^DELETE ' "$RW/calls"; then
       ok "release cleanup: good publish deletes nothing, exit 0"
     else ko "release cleanup: good publish (rc=$rc): $(tr '\n' ';' < "$RW/calls")"; fi
+    rel create POST_RC=28 DRAFT=true; rc=$?
+    if [ "$rc" -ne 0 ] && grep -q '^POST ' "$RW/calls" && ! grep -q '^DELETE ' "$RW/calls" \
+      && grep -q 'the draft request for v9.9-ci7 failed or its reply was lost' "$RW/err" && ! grep -q 'unbound variable' "$RW/err"; then
+      ok "release cleanup: failed or unanswered draft request: tag logged for a check by hand"
+    else ko "release cleanup: lost draft reply (rc=$rc): $(tr '\n' ';' < "$RW/err")"; fi
   fi
 else
   skip "release cleanup (host-only: needs bash and python3)"
